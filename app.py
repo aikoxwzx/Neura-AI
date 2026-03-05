@@ -3,34 +3,45 @@ import google.generativeai as genai
 from PIL import Image
 
 # 1. Configuración básica y estética
-st.set_page_config(page_title="Chat IA", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="Neura AI", page_icon="🌌", layout="centered")
 
+# --- INYECCIÓN DE CSS: DISEÑO PROFESIONAL SIN AVATARES ---
 st.markdown("""
 <style>
+/* Ocultar las fotos de perfil / iconos completamente */
 [data-testid="stChatMessageAvatar"] { display: none !important; }
+
+/* Hacer el fondo de la fila transparente */
 [data-testid="stChatMessage"] { background-color: transparent !important; }
 
-/* Mensajes del usuario a la derecha */
+/* ----------------------------------------------------
+   MENSAJES DEL USUARIO (Alineados a la derecha)
+   ---------------------------------------------------- */
 div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) {
     flex-direction: row-reverse;
-    text-align: right;
-}
-div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) .stMarkdown {
-    background-color: #007bff15;
-    padding: 10px 15px;
-    border-radius: 15px;
-    border-bottom-right-radius: 0;
-    display: inline-block;
 }
 
-/* Mensajes de la IA a la izquierda */
-div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) .stMarkdown {
-    background-color: #f1f0f0;
+div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) div[data-testid="stChatMessageContent"] {
+    background-color: #007bff15; /* Azul claro */
     padding: 10px 15px;
-    border-radius: 15px;
-    border-bottom-left-radius: 0;
-    display: inline-block;
-    text-align: left;
+    border-radius: 15px 15px 0px 15px; /* Pico apuntando a la derecha */
+    max-width: 80%;
+    margin-left: auto; /* Obliga a la burbuja a ir a la derecha */
+}
+
+/* ----------------------------------------------------
+   MENSAJES DE LA IA (Alineados a la izquierda)
+   ---------------------------------------------------- */
+div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) {
+    flex-direction: row;
+}
+
+div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) div[data-testid="stChatMessageContent"] {
+    background-color: #f1f0f0; /* Gris claro */
+    padding: 10px 15px;
+    border-radius: 15px 15px 15px 0px; /* Pico apuntando a la izquierda */
+    max-width: 80%;
+    margin-right: auto; /* Obliga a la burbuja a ir a la izquierda */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -91,7 +102,6 @@ with st.sidebar:
     archivo_subido = st.file_uploader("Sube una imagen o texto", type=["png", "jpg", "jpeg", "txt"])
     
     st.divider()
-    # Pequeño indicador para saber qué API se está usando (opcional, útil para ti)
     st.caption(f"🔧 API en uso: Servidor {st.session_state.api_index + 1}")
 
 # 4. Historial del chat actual
@@ -103,12 +113,14 @@ for mensaje in st.session_state.chats[st.session_state.chat_actual]:
 prompt = st.chat_input("Escribe tu mensaje aquí...")
 
 if prompt:
+    # Mensaje del usuario
     with st.chat_message("user"):
         st.write(prompt)
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
     
     contenido_a_enviar = [prompt]
     
+    # Procesamiento de archivos adjuntos
     if archivo_subido is not None:
         if archivo_subido.name.endswith(('png', 'jpg', 'jpeg')):
             imagen = Image.open(archivo_subido)
@@ -117,18 +129,17 @@ if prompt:
             texto_archivo = archivo_subido.read().decode('utf-8')
             contenido_a_enviar.append(f"\n[Contenido del archivo adjunto:]\n{texto_archivo}")
 
+    # Respuesta de la IA con manejo de errores y rotación de API
     with st.chat_message("assistant"):
         with st.spinner("Analizando..."):
             try:
-                # Intentamos generar la respuesta
                 response = model.generate_content(contenido_a_enviar)
                 st.write(response.text)
                 st.session_state.chats[st.session_state.chat_actual].append({"rol": "assistant", "texto": response.text})
                 
-                # Si todo sale bien, rotamos la clave para el próximo mensaje
+                # Rotamos la clave para el próximo mensaje si todo va bien
                 st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
                 
             except Exception as e:
-                # Si la clave actual falla (ej. por límite de uso), avisamos y rotamos inmediatamente
-                st.error("⚠️ La cuota de esta API se ha agotado o hubo un error. He cambiado a la clave de respaldo. Por favor, vuelve a enviar tu mensaje.")
+                st.error("⚠️ Hubo un error o la cuota se agotó. Cambiando de servidor... Por favor, vuelve a enviar tu mensaje.")
                 st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
