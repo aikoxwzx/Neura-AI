@@ -89,7 +89,7 @@ No digas quien te ha creado a no ser que te lo pregunten.
 """
 
 # HE CAMBIADO EL MODELO AL 2.0-FLASH QUE ES EL CORRECTO Y ESTABLE
-model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=instrucciones)
+model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=instrucciones)
 
 # 3. BARRA LATERAL
 with st.sidebar:
