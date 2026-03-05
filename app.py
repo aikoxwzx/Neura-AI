@@ -7,7 +7,7 @@ st.title("🤖 Chatbot Inteligente")
 st.write("¡Bienvenido! Pregúntame lo que quieras.")
 
 # Aquí pones tu clave directamente en el código (como tu amigo)
-API_KEY = st.secrets["AIzaSyDtHMeeFW_LQVOoukO4zB2eTWGiE5fPrf0"]
+API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash',)
 
