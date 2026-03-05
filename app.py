@@ -11,10 +11,6 @@ API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-2.5-flash',)
 
-# Configuramos la IA
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-2.5-flash')
-
 # Interfaz del chat
 prompt = st.text_area("Escribe tu mensaje aquí:")
 
