@@ -18,7 +18,8 @@ st.markdown("""
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
-    transition: background-color 0.3s ease !important;
+    /* Animación smooth y minimalista añadida aquí */
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), min-width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s ease !important;
 }
 
 /* --- BOTONES DE CHAT (Estirados y con animación hover) --- */
