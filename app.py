@@ -4,13 +4,38 @@ from groq import Groq
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-# CSS para el cristal líquido morado y botones de la barra lateral estirados
+# CSS para el cristal líquido morado y botones dinámicos
 st.markdown("""
 <style>
 /* Capa morada semitransparente que se mezcla con el fondo nativo de Streamlit */
 .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
+    background-attachment: fixed !important; /* El fondo no se corta al hacer scroll */
 }
+
+/* ==================================================================
+   ARREGLO DEFINITIVO DEL BLOQUE NEGRO INFERIOR Y SUPERIOR
+   ================================================================== */
+/* Forzamos transparencia TOTAL en header, footer y contenedores nativos de vista */
+header[data-testid="stHeader"], 
+div[data-testid="stBottomBlock"],
+footer,
+.stAppViewContainer > section {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+div[data-testid="stAppViewContainer"],
+div[data-testid="stAppViewBlockContainer"] {
+    background-color: transparent !important;
+    background: transparent !important;
+}
+
+div[data-testid="stAppViewBlockContainer"] {
+    padding-bottom: 120px !important; 
+}
+/* ================================================================== */
+
 
 /* Panel lateral de cristal esmerilado con toque morado */
 [data-testid="stSidebar"] {
@@ -30,7 +55,7 @@ st.markdown("""
     display: none !important;
 }
 
-/* Forzar que el contenedor ocupe todo el ancho y ESTIRE los hijos */
+/* Contenedor principal alineado a la izquierda estirando al máximo */
 div[data-testid="stRadio"],
 div[data-testid="stRadio"] > div,
 div[data-testid="stRadio"] div[role="radiogroup"] {
@@ -38,7 +63,7 @@ div[data-testid="stRadio"] div[role="radiogroup"] {
     max-width: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: stretch !important; /* LA MAGIA: Obliga a estirar hasta el borde derecho */
+    align-items: stretch !important; /* Obliga a estirar hasta el borde derecho */
 }
 
 /* Ocultar el círculo nativo (el punto rojo/blanco) */
@@ -46,15 +71,15 @@ div[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
     display: none !important; 
 }
 
-/* Estilo de la caja base del chat - FORZADA AL 100% */
+/* Estilo de la caja base del chat - AL 100% */
 div[data-testid="stRadio"] div[role="radiogroup"] label {
     background-color: rgba(255, 255, 255, 0.05) !important;
     padding: 12px 15px !important;
     border-radius: 12px !important;
     margin-bottom: 8px !important;
-    width: 100% !important; 
-    max-width: 100% !important;
-    flex: 1 1 100% !important; /* Fuerza la expansión máxima */
+    width: 100% !important;  
+    max-width: 100% !important;     
+    flex: 1 1 100% !important;      
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
@@ -62,13 +87,15 @@ div[data-testid="stRadio"] div[role="radiogroup"] label {
     border: 1px solid transparent !important;
 }
 
-/* Forzar que el texto interno también ocupe todo el ancho sin romperse */
+/* Forzar que el texto interno gestione bien el espacio y los recortes */
 div[data-testid="stRadio"] div[role="radiogroup"] label div {
     width: 100% !important;
+    max-width: 100% !important;
     display: block !important;
 }
 div[data-testid="stRadio"] div[role="radiogroup"] label p {
     width: 100% !important;
+    max-width: 100% !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
