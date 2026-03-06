@@ -108,7 +108,7 @@ with st.sidebar:
     
     st.divider()
     st.caption(f"Servidor en uso: {st.session_state.api_index + 1}")
-    st.caption("Aitor")
+    st.caption("NeuraAI")
 
 # --- 4. MOTOR GRÁFICO PERSONALIZADO (Burbujas Moradas) ---
 def renderizar_mensaje(rol, texto):
