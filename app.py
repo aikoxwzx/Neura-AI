@@ -211,7 +211,7 @@ if not st.session_state.autenticado:
             st.write(f"Introduce el código enviado a {st.session_state.temp_email}")
             st.info(f"DEBUG: Tu código es {st.session_state.codigo_mfa}")
             
-            codigo_usuario = st.text_input("Código de seguridad", maxLength=6)
+            codigo_usuario = st.text_input("Código de seguridad", max_chars=6)
             if st.button("Verificar", use_container_width=True):
                 if codigo_usuario == st.session_state.codigo_mfa:
                     # Validado: Cargamos los datos en la sesión real
