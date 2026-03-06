@@ -1,22 +1,42 @@
 import streamlit as st
 from groq import Groq
 
-# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA ---
-st.set_page_config(page_title="Neura AI", page_icon="🌌", layout="centered")
+# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass iOS Style) ---
+st.set_page_config(page_title="Neura AI", page_icon="✨", layout="centered")
 
-# Forzamos el fondo oscuro general
+# Forzamos el fondo claro azulito (estilo Apple) y textos oscuros
 st.markdown("""
 <style>
+/* Fondo general degradado azul muy suave */
 .stApp {
-    background: #0f172a !important;
-    background-image: linear-gradient(135deg, #0f172a 0%, #1e1e2f 100%) !important;
-    color: white !important;
+    background: #f0f9ff !important;
+    background-image: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%) !important;
+    color: #1e293b !important;
 }
-h1, h2, h3, p, span, label { color: #f8fafc !important; }
+
+/* Forzar que todos los textos nativos sean oscuros para que se lean bien */
+h1, h2, h3, p, span, label, div { color: #1e293b !important; }
+
+/* Darle un toque de cristal esmerilado también al panel lateral */
+[data-testid="stSidebar"] {
+    background-color: rgba(255, 255, 255, 0.4) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Estilizar el campo de texto de entrada */
+.stChatInputContainer {
+    background-color: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(16px) !important;
+    border-radius: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🌌 Neura AI (Powered by Groq ⚡)")
+st.title("✨ Neura AI (Powered by Groq ⚡)")
 st.caption("Desarrollado y programado por Aitor")
 st.divider()
 
@@ -43,7 +63,7 @@ No uses emojis y mantén un tono profesional.
 No digas tu nombre en todos los chats.
 """
 
-# --- 3. BARRA LATERAL ---
+# --- 3. BARRA LATERAL (Con nuevo botón de borrado) ---
 with st.sidebar:
     st.title("📂 Mis Chats")
     
@@ -52,7 +72,7 @@ with st.sidebar:
     if "chat_actual" not in st.session_state:
         st.session_state.chat_actual = "Chat 1"
 
-    if st.button("➕ Nuevo Chat"):
+    if st.button("➕ Nuevo Chat", use_container_width=True):
         nuevo_nombre = f"Chat {len(st.session_state.chats) + 1}"
         st.session_state.chats[nuevo_nombre] = []
         st.session_state.chat_actual = nuevo_nombre
@@ -64,6 +84,11 @@ with st.sidebar:
         index=list(st.session_state.chats.keys()).index(st.session_state.chat_actual)
     )
 
+    # NUEVO: Botón para vaciar el chat actual
+    if st.button("🗑️ Vaciar Chat Actual", type="primary", use_container_width=True):
+        st.session_state.chats[st.session_state.chat_actual] = []
+        st.rerun()
+
     st.divider()
     st.markdown("### 📎 Analizar Archivo")
     archivo_subido = st.file_uploader("Sube texto", type=["txt"])
@@ -72,23 +97,23 @@ with st.sidebar:
     st.caption(f"🔧 Servidor en uso: {st.session_state.api_index + 1}")
     st.caption("Aitor | Ciberseguridad")
 
-# --- 4. MOTOR GRÁFICO PERSONALIZADO (CERO AVATARES, 100% ALINEADO) ---
+# --- 4. MOTOR GRÁFICO PERSONALIZADO (Liquid Glass iOS) ---
 def renderizar_mensaje(rol, texto):
     if rol == "user":
-        # Burbuja del usuario: Derecha y Azul
+        # Burbuja del usuario: Estilo iMessage (Azul vibrante translúcido)
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-end; width: 100%; margin-bottom: 20px;">
-    <div style="background-color: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 20px 20px 0px 20px; padding: 10px 15px; max-width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
-        {texto}
+    <div style="background-color: rgba(10, 132, 255, 0.85); color: white; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 20px 20px 4px 20px; padding: 10px 16px; max-width: 75%; box-shadow: 0 8px 20px rgba(10, 132, 255, 0.2); backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%); font-weight: 400;">
+        <span style="color: white !important;">{texto}</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
     else:
-        # Burbuja de Neura: Izquierda y Gris
+        # Burbuja de Neura: Estilo iOS claro (Blanco esmerilado)
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 20px;">
-    <div style="background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px 20px 20px 0px; padding: 10px 15px; max-width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
-        {texto}
+    <div style="background-color: rgba(255, 255, 255, 0.7); color: #1d1d1f; border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 20px 20px 20px 4px; padding: 10px 16px; max-width: 75%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%); font-weight: 400;">
+        <span style="color: #1d1d1f !important;">{texto}</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
