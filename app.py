@@ -9,7 +9,7 @@ st.set_page_config(page_title="Neura AI", layout="wide")
 
 st.markdown("""
 <style>
-/* --- ELIMINACIÓN DE PARPADEO Y FORZADO DE FONDO --- */
+/* --- ELIMINACIÓN DE PARPADEO Y FORZADO DE FONDO si --- */
 html, body, [data-testid="stAppViewContainer"], .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
     background-attachment: fixed !important;
