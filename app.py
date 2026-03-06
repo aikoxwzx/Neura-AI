@@ -21,8 +21,20 @@ st.markdown("""
 }
 
 /* ------------------------------------------------------------------
-   NUEVO: Transformar selectores de chat en bloques limpios (Sin punto)
+   NUEVO: Transformar selectores de chat en bloques limpios y anchos
    ------------------------------------------------------------------ */
+/* Ocultar el título "Selecciona una conversación:" para dejarlo minimalista */
+[data-testid="stRadio"] > label {
+    display: none !important;
+}
+
+/* Forzar que el contenedor del grupo de botones ocupe todo el ancho */
+[data-testid="stRadio"] div[role="radiogroup"] {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
 /* Ocultar el círculo nativo (el punto rojo/blanco) */
 [data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
     display: none !important; 
@@ -34,10 +46,13 @@ st.markdown("""
     padding: 10px 15px !important;
     border-radius: 12px !important;
     margin-bottom: 8px !important;
-    width: 100% !important;
+    width: 100% !important; /* Estira la caja hasta el final */
+    box-sizing: border-box !important; /* Evita que el padding rompa el margen */
     cursor: pointer !important;
     transition: all 0.2s ease !important;
     border: 1px solid transparent !important;
+    display: flex !important;
+    align-items: center !important;
 }
 
 /* Efecto al pasar el ratón por encima */
