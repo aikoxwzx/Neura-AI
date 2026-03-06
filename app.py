@@ -1,156 +1,399 @@
 import streamlit as st
 import requests
 import re
-import random
 from groq import Groq
 
-# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA ---
+# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo - Carga Ultra-Suave) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
 st.markdown("""
 <style>
+/* --- ELIMINACIÓN DE PARPADEO Y FORZADO DE FONDO --- */
 html, body, [data-testid="stAppViewContainer"], .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
     background-attachment: fixed !important;
     background-color: #0e1117 !important; 
 }
+
+* {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* --- PANEL LATERAL (Visuales sin romper el layout) --- */
 [data-testid="stSidebar"] {
     background-color: rgba(126, 34, 206, 0.05) !important;
     backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
 }
-/* Botones de Chat */
-[data-testid="stRadio"] > label { display: none !important; }
+
+/* --- BOTONES DE CHAT --- */
+[data-testid="stRadio"] > label {
+    display: none !important;
+}
+
+div[data-testid="stRadio"],
+div[data-testid="stRadio"] > div,
+div[data-testid="stRadio"] div[role="radiogroup"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important; 
+}
+
+div[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
+    display: none !important; 
+}
+
 div[data-testid="stRadio"] div[role="radiogroup"] label {
     background-color: rgba(255, 255, 255, 0.05) !important;
     padding: 12px 15px !important;
     border-radius: 12px !important;
     margin-bottom: 8px !important;
+    width: 100% !important; 
+    max-width: 100% !important;
+    flex: 1 1 100% !important; 
+    display: flex !important;
+    box-sizing: border-box !important;
     cursor: pointer !important;
-    transition: all 0.3s ease !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
     border: 1px solid transparent !important;
 }
+
+div[data-testid="stRadio"] div[role="radiogroup"] label div {
+    width: 100% !important;
+    display: block !important;
+}
+
+div[data-testid="stRadio"] div[role="radiogroup"] label p {
+    width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    margin: 0 !important;
+}
+
 div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
     background-color: rgba(168, 85, 247, 0.15) !important;
-    transform: translateX(4px);
+    transform: translateX(4px); 
 }
+
 div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     background-color: rgba(168, 85, 247, 0.3) !important;
     border: 1px solid rgba(168, 85, 247, 0.5) !important;
+    box-shadow: 0 2px 10px rgba(168, 85, 247, 0.1) !important;
+}
+
+/* --- CAJA DE INPUT DE TEXTO --- */
+.stChatInputContainer {
+    background-color: rgba(168, 85, 247, 0.05) !important;
+    backdrop-filter: blur(16px) !important;
+    border-radius: 20px !important;
+    border: 1px solid rgba(168, 85, 247, 0.3) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease-in-out !important;
+}
+
+.stChatInputContainer:focus-within {
+    border: 1px solid rgba(168, 85, 247, 0.8) !important;
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.2) !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. SISTEMA DE AUTENTICACIÓN Y BASE DE DATOS ---
+# --- 2. SISTEMA DE AUTENTICACIÓN Y BASE DE DATOS (FIREBASE REST API) ---
 try:
     FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
 except KeyError:
-    st.error("Error técnico: Falta FIREBASE_API_KEY en los secretos.")
+    st.error("Error técnico: Falta FIREBASE_API_KEY en Streamlit Secrets.")
     st.stop()
 
 FIREBASE_DB_URL = "https://neura-ai-2026-default-rtdb.europe-west1.firebasedatabase.app"
 
+# Validador de contraseñas (sincronizado con tus reglas de Firebase)
 def validar_contrasena(password):
-    if len(password) < 6: return False, "La contraseña debe tener al menos 6 caracteres."
-    if not re.search(r"[A-Z]", password): return False, "Debe contener al menos una mayúscula."
-    if not re.search(r"[a-z]", password): return False, "Debe contener al menos una minúscula."
-    if not re.search(r"[0-9]", password): return False, "Debe contener al menos un número."
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password): return False, "Debe contener al menos un carácter especial."
+    if len(password) < 6:
+        return False, "La contraseña debe tener al menos 6 caracteres."
+    if not re.search(r"[A-Z]", password):
+        return False, "La contraseña debe contener al menos una mayúscula."
+    if not re.search(r"[a-z]", password):
+        return False, "La contraseña debe contener al menos una minúscula."
+    if not re.search(r"[0-9]", password):
+        return False, "La contraseña debe contener al menos un número."
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False, "La contraseña debe contener al menos un carácter especial."
     return True, ""
 
 def registrar_usuario_firebase(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
     payload = {"email": email, "password": password, "returnSecureToken": True}
     respuesta = requests.post(url, json=payload)
-    return respuesta.status_code == 200
+    
+    if respuesta.status_code == 200:
+        return True, "Usuario registrado con éxito."
+    else:
+        error_msg = respuesta.json().get("error", {}).get("message", "Error desconocido")
+        if error_msg == "EMAIL_EXISTS":
+            return False, "Este correo ya está registrado."
+        elif error_msg == "WEAK_PASSWORD":
+            return False, "La contraseña es demasiado débil según las reglas del servidor."
+        elif error_msg == "INVALID_EMAIL":
+            return False, "El formato del correo es inválido."
+        return False, error_msg
 
 def login_usuario_firebase(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
     payload = {"email": email, "password": password, "returnSecureToken": True}
     respuesta = requests.post(url, json=payload)
+    
     if respuesta.status_code == 200:
         datos = respuesta.json()
         return True, datos['idToken'], datos['localId']
-    return False, "Correo o contraseña incorrectos.", None
+    else:
+        error_msg = respuesta.json().get("error", {}).get("message", "Error desconocido")
+        if error_msg in ["INVALID_LOGIN_CREDENTIALS", "INVALID_PASSWORD", "EMAIL_NOT_FOUND"]:
+            return False, "Correo o contraseña incorrectos.", None
+        return False, error_msg, None
 
 def cargar_chats_firebase(uid, token):
     url = f"{FIREBASE_DB_URL}/usuarios/{uid}/chats.json?auth={token}"
     respuesta = requests.get(url)
-    return respuesta.json() if respuesta.status_code == 200 and respuesta.json() else {}
+    if respuesta.status_code == 200 and respuesta.json() is not None:
+        return respuesta.json()
+    return {}
 
 def guardar_chats_firebase(uid, token, chats):
     chats_a_guardar = {titulo: mensajes for titulo, mensajes in chats.items() if len(mensajes) > 0}
     url = f"{FIREBASE_DB_URL}/usuarios/{uid}/chats.json?auth={token}"
     requests.put(url, json=chats_a_guardar)
 
-# --- 3. LÓGICA DE MFA Y SESIÓN ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
-if "esperando_mfa" not in st.session_state:
-    st.session_state.esperando_mfa = False
 
+# --- PANTALLA DE LOGIN / REGISTRO ---
 if not st.session_state.autenticado:
     col1, col2, col3 = st.columns([1, 2, 1])
+    
     with col2:
         st.title("Neura AI")
+        st.caption("Por favor, identifícate para acceder al sistema.")
         
-        if not st.session_state.esperando_mfa:
-            tab_login, tab_registro = st.tabs(["Iniciar Sesión", "Registrarse"])
-            
-            with tab_login:
-                with st.form("form_login"):
-                    email_login = st.text_input("Correo electrónico")
-                    pass_login = st.text_input("Contraseña", type="password")
-                    if st.form_submit_button("Entrar", use_container_width=True):
-                        exito, token, uid = login_usuario_firebase(email_login, pass_login)
-                        if exito:
-                            # Aquí activaríamos el envío del código MFA al correo
-                            st.session_state.esperando_mfa = True
-                            st.session_state.temp_token = token
-                            st.session_state.temp_uid = uid
-                            st.session_state.temp_email = email_login
-                            st.session_state.codigo_mfa = str(random.randint(100000, 999999))
+        tab_login, tab_registro = st.tabs(["Iniciar Sesión", "Registrarse"])
+        
+        with tab_login:
+            with st.form("form_login"):
+                email_login = st.text_input("Correo electrónico")
+                pass_login = st.text_input("Contraseña", type="password")
+                submit_login = st.form_submit_button("Entrar", use_container_width=True)
+                
+                if submit_login:
+                    exito, token_o_msg, uid = login_usuario_firebase(email_login, pass_login)
+                    if exito:
+                        st.session_state.autenticado = True
+                        st.session_state.usuario_email = email_login
+                        st.session_state.id_token = token_o_msg
+                        st.session_state.user_uid = uid
+                        
+                        chats_guardados = cargar_chats_firebase(uid, token_o_msg)
+                        if not chats_guardados:
+                            chats_guardados = {}
+                        
+                        base_nombre = "Nuevo Chat"
+                        nuevo_nombre = base_nombre
+                        contador = 1
+                        while nuevo_nombre in chats_guardados:
+                            nuevo_nombre = f"{base_nombre} ({contador})"
+                            contador += 1
                             
-                            # NOTA: Aquí iría la función para enviar el correo con el código
-                            st.info(f"DEBUG: Tu código MFA es {st.session_state.codigo_mfa}") 
-                            st.rerun()
-                        else: st.error(token)
-            
-            with tab_registro:
-                with st.form("form_registro"):
-                    email_reg = st.text_input("Nuevo Correo")
-                    pass_reg = st.text_input("Nueva Contraseña", type="password")
-                    if st.form_submit_button("Crear cuenta", use_container_width=True):
-                        valido, msg = validar_contrasena(pass_reg)
-                        if valido:
-                            if registrar_usuario_firebase(email_reg, pass_reg): st.success("Cuenta creada.")
-                            else: st.error("Error al registrar.")
-                        else: st.error(msg)
-        else:
-            # Pantalla de verificación de código MFA
-            st.subheader("Verificación de Seguridad")
-            st.write(f"Introduce el código enviado a {st.session_state.temp_email}")
-            codigo_usuario = st.text_input("Código de 6 dígitos", maxLength=6)
-            
-            if st.button("Verificar", use_container_width=True):
-                if codigo_usuario == st.session_state.codigo_mfa:
-                    st.session_state.autenticado = True
-                    st.session_state.usuario_email = st.session_state.temp_email
-                    st.session_state.id_token = st.session_state.temp_token
-                    st.session_state.user_uid = st.session_state.temp_uid
-                    
-                    chats = cargar_chats_firebase(st.session_state.user_uid, st.session_state.id_token)
-                    st.session_state.chats = chats if chats else {"Nuevo Chat": []}
-                    st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
-                    st.session_state.esperando_mfa = False
-                    st.rerun()
-                else: st.error("Código incorrecto.")
-            
-            if st.button("Volver"):
-                st.session_state.esperando_mfa = False
-                st.rerun()
+                        chats_guardados[nuevo_nombre] = []
+                        
+                        st.session_state.chats = chats_guardados
+                        st.session_state.chat_actual = nuevo_nombre
+                        st.rerun()
+                    else:
+                        st.error(token_o_msg)
+                        
+        with tab_registro:
+            with st.form("form_registro"):
+                email_reg = st.text_input("Nuevo Correo")
+                pass_reg = st.text_input("Nueva Contraseña", type="password")
+                pass_reg_conf = st.text_input("Confirmar Contraseña", type="password")
+                submit_reg = st.form_submit_button("Crear cuenta", use_container_width=True)
+                
+                if submit_reg:
+                    if pass_reg != pass_reg_conf:
+                        st.error("Las contraseñas no coinciden.")
+                    else:
+                        es_valida, msg_error = validar_contrasena(pass_reg)
+                        if not es_valida:
+                            st.error(msg_error)
+                        else:
+                            exito, mensaje = registrar_usuario_firebase(email_reg, pass_reg)
+                            if exito:
+                                st.success(mensaje + " Ahora puedes iniciar sesión en la pestaña anterior.")
+                            else:
+                                st.error(mensaje)
+    
     st.stop()
 
-# --- 4. MOTOR DE CHAT PRINCIPAL ---
+# --- 3. SISTEMA PRINCIPAL DE NEURA AI ---
 st.title("Neura AI")
-# ... (Aquí continúa el código de Groq y visuales que ya tenías)
+st.caption("Desarrollado y programado por Aitor")
+st.divider()
+
+api_keys = [val for key, val in st.secrets.items() if key.startswith("GROQ_API_KEY")]
+
+if not api_keys:
+    st.error("Error técnico: No se encontraron claves API de Groq en los secretos de Streamlit.")
+    st.stop()
+
+if "api_index" not in st.session_state:
+    st.session_state.api_index = 0
+
+st.session_state.api_index = st.session_state.api_index % len(api_keys)
+client = Groq(api_key=api_keys[st.session_state.api_index])
+
+instrucciones = """
+Eres Neura, un asistente de IA muy avanzado y educado.
+Fuiste creado, programado y desplegado por Aitor.
+Si te preguntan quién es tu creador, responde siempre con orgullo que fuiste creado por Aitor.
+Busca ayudar sea como sea. Si cometes un error, discúlpate.
+Saca temas de conversación, pregunta por los demás.
+No uses emojis y mantén un tono profesional.
+No digas tu nombre en todos los chats.
+Si te preguntan te llamas Neura.
+"""
+
+with st.sidebar:
+    st.write(f"Usuario: {st.session_state.usuario_email}")
+    if st.button("Cerrar Sesión", use_container_width=True):
+        st.session_state.autenticado = False
+        st.session_state.chats = {"Nuevo Chat": []}
+        st.rerun()
+        
+    st.divider()
+    st.title("Mis Chats")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Nuevo", use_container_width=True):
+            base_nombre = "Nuevo Chat"
+            nuevo_nombre = base_nombre
+            contador = 1
+            while nuevo_nombre in st.session_state.chats:
+                nuevo_nombre = f"{base_nombre} ({contador})"
+                contador += 1
+                
+            st.session_state.chats[nuevo_nombre] = []
+            st.session_state.chat_actual = nuevo_nombre
+            guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
+            st.rerun()
+            
+    with col2:
+        if st.button("Borrar", use_container_width=True):
+            if st.session_state.chat_actual in st.session_state.chats:
+                del st.session_state.chats[st.session_state.chat_actual]
+            
+            if not st.session_state.chats:
+                st.session_state.chats = {"Nuevo Chat": []}
+                
+            st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
+            guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
+            st.rerun()
+
+    chat_seleccionado = st.session_state.chat_actual if st.session_state.chat_actual in st.session_state.chats else list(st.session_state.chats.keys())[0]
+    
+    st.session_state.chat_actual = st.radio(
+        "Selecciona una conversación:", 
+        list(st.session_state.chats.keys()), 
+        index=list(st.session_state.chats.keys()).index(chat_seleccionado)
+    )
+
+    st.divider()
+    st.markdown("### Analizar Archivo")
+    archivo_subido = st.file_uploader("Sube texto", type=["txt"])
+    
+    st.divider()
+    st.caption(f"Servidor en uso: {st.session_state.api_index + 1} de {len(api_keys)}")
+    st.caption("NeuraAI")
+
+def renderizar_mensaje(rol, texto):
+    if rol == "user":
+        st.markdown(f"""
+<div style="display: flex; justify-content: flex-end; width: 100%; margin-bottom: 20px;">
+    <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(109, 40, 217, 0.9)); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px 20px 4px 20px; padding: 10px 16px; max-width: 75%; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3); backdrop-filter: blur(16px); font-weight: 400;">
+        <span style="color: white !important;">{texto}</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+<div style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 20px;">
+    <div style="background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 20px 20px 20px 4px; padding: 10px 16px; max-width: 75%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); backdrop-filter: blur(16px); font-weight: 400;">
+        <span>{texto}</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+for mensaje in st.session_state.chats[st.session_state.chat_actual]:
+    rol_correcto = "assistant" if mensaje["rol"] in ["bot", "assistant", "ia"] else "user"
+    renderizar_mensaje(rol_correcto, mensaje["texto"])
+
+prompt = st.chat_input("Escribe tu mensaje aquí...")
+
+if prompt:
+    es_primer_mensaje = len(st.session_state.chats[st.session_state.chat_actual]) == 0
+
+    renderizar_mensaje("user", prompt)
+    st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
+    
+    guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
+    
+    mensajes_api = [{"role": "system", "content": instrucciones}]
+    for m in st.session_state.chats[st.session_state.chat_actual][-10:]:
+        rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
+        mensajes_api.append({"role": rol_api, "content": m["texto"]})
+    
+    if archivo_subido is not None:
+        archivo_subido.seek(0)
+        texto_archivo = archivo_subido.read().decode('utf-8')
+        mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto:]\n{texto_archivo}"
+
+    with st.spinner("Procesando..."):
+        try:
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=mensajes_api
+            )
+            respuesta_texto = response.choices[0].message.content
+            
+            renderizar_mensaje("assistant", respuesta_texto)
+            st.session_state.chats[st.session_state.chat_actual].append({"rol": "assistant", "texto": respuesta_texto})
+            
+            st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
+
+            if es_primer_mensaje:
+                nuevo_titulo = prompt[:20] + "..." if len(prompt) > 20 else prompt
+                base_titulo = nuevo_titulo
+                contador_titulo = 1
+                
+                while nuevo_titulo in st.session_state.chats and nuevo_titulo != st.session_state.chat_actual:
+                    nuevo_titulo = f"{base_titulo} ({contador_titulo})"
+                    contador_titulo += 1
+                
+                st.session_state.chats = {
+                    (nuevo_titulo if k == st.session_state.chat_actual else k): v 
+                    for k, v in st.session_state.chats.items()
+                }
+                st.session_state.chat_actual = nuevo_titulo
+                
+            guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
+            
+            if es_primer_mensaje:
+                st.rerun()
+            
+        except Exception as e:
+            st.error(f"Error: {e}. Cambiando de servidor... Intenta de nuevo.")
+            st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
