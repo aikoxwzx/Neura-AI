@@ -4,7 +4,7 @@ from groq import Groq
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-# CSS para el cristal líquido morado y botones dinámicos
+# CSS para el cristal líquido morado y botones de la barra lateral dinámicos
 st.markdown("""
 <style>
 /* Capa morada semitransparente que se mezcla con el fondo nativo de Streamlit */
@@ -38,7 +38,7 @@ div[data-testid="stRadio"] div[role="radiogroup"] {
     max-width: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: flex-start !important; /* ALINEACIÓN IZQUIERDA, NO ESTIRAR */
+    align-items: flex-start !important; /* ALINEACIÓN A LA IZQUIERDA, SIN ESTIRAR */
 }
 
 /* Ocultar el círculo nativo (el punto rojo/blanco) */
@@ -162,7 +162,7 @@ with st.sidebar:
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
             st.rerun()
 
-    # NUEVO: Línea divisoria fina que has pedido
+    # LÍNEA FINA SEPARADORA DEBAJO DE LOS BOTONES
     st.divider()
 
     st.session_state.chat_actual = st.radio(
@@ -190,69 +190,3 @@ def renderizar_mensaje(rol, texto):
 </div>
 """, unsafe_allow_html=True)
     else:
-        st.markdown(f"""
-<div style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 20px;">
-    <div style="background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 20px 20px 20px 4px; padding: 10px 16px; max-width: 75%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); backdrop-filter: blur(16px); font-weight: 400;">
-        <span>{texto}</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# Imprimir el historial de la conversación
-for mensaje in st.session_state.chats[st.session_state.chat_actual]:
-    rol_correcto = "assistant" if mensaje["rol"] in ["bot", "assistant", "ia"] else "user"
-    renderizar_mensaje(rol_correcto, mensaje["texto"])
-
-# --- 5. LÓGICA DE ENVÍO Y AUTO-RENOMBRAMIENTO ---
-prompt = st.chat_input("Escribe tu mensaje aquí...")
-
-if prompt:
-    es_primer_mensaje = len(st.session_state.chats[st.session_state.chat_actual]) == 0
-
-    renderizar_mensaje("user", prompt)
-    st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
-    
-    mensajes_api = [{"role": "system", "content": instrucciones}]
-    for m in st.session_state.chats[st.session_state.chat_actual][-5:]:
-        rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
-        mensajes_api.append({"role": rol_api, "content": m["texto"]})
-    
-    if archivo_subido is not None:
-        texto_archivo = archivo_subido.read().decode('utf-8')
-        mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto:]\n{texto_archivo}"
-
-    with st.spinner("Procesando..."):
-        try:
-            response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=mensajes_api
-            )
-            respuesta_texto = response.choices[0].message.content
-            
-            renderizar_mensaje("assistant", respuesta_texto)
-            st.session_state.chats[st.session_state.chat_actual].append({"rol": "assistant", "texto": respuesta_texto})
-            
-            st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
-
-            if es_primer_mensaje:
-                nuevo_titulo = prompt[:20] + "..." if len(prompt) > 20 else prompt
-                base_titulo = nuevo_titulo
-                contador_titulo = 1
-                while nuevo_titulo in st.session_state.chats and nuevo_titulo != st.session_state.chat_actual:
-                    nuevo_titulo = f"{base_titulo} ({contador_titulo})"
-                    contador_titulo += 1
-                
-                nuevos_chats = {}
-                for clave, valor in st.session_state.chats.items():
-                    if clave == st.session_state.chat_actual:
-                        nuevos_chats[nuevo_titulo] = valor
-                    else:
-                        nuevos_chats[clave] = valor
-                
-                st.session_state.chats = nuevos_chats
-                st.session_state.chat_actual = nuevo_titulo
-                st.rerun()
-            
-        except Exception as e:
-            st.error("Fallo en la conexión. Cambiando de servidor... Por favor, vuelve a enviar tu mensaje.")
-            st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
