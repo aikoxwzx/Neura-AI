@@ -70,14 +70,14 @@ with st.sidebar:
     # Botones en columnas para crear y DESTRUIR chats
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("➕ Nuevo", use_container_width=True):
+        if st.button("Nuevo", use_container_width=True):
             nuevo_nombre = f"Chat {len(st.session_state.chats) + 1}"
             st.session_state.chats[nuevo_nombre] = []
             st.session_state.chat_actual = nuevo_nombre
             st.rerun()
             
     with col2:
-        if st.button("🗑️ Borrar", use_container_width=True):
+        if st.button("Borrar", use_container_width=True):
             # Elimina el chat completo del diccionario
             del st.session_state.chats[st.session_state.chat_actual]
             
