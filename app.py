@@ -146,7 +146,7 @@ with st.sidebar:
     
     st.divider()
     st.caption(f"🔧 API en uso: Servidor {st.session_state.api_index + 1}")
-    st.caption("Aitor)
+    st.caption("Aitor")
 
 # --- 4. HISTORIAL DE CHAT ---
 for mensaje in st.session_state.chats[st.session_state.chat_actual]:
