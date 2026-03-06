@@ -18,6 +18,8 @@ st.markdown("""
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
+    min-width: 380px !important;
+    max-width: 380px !important;
 }
 
 /* ------------------------------------------------------------------
@@ -28,9 +30,14 @@ st.markdown("""
     display: none !important;
 }
 
-/* Contenedor del grupo de botones */
+/* Forzar que TODAS las capas del contenedor ocupen todo el ancho sin recortes */
+[data-testid="stRadio"],
+[data-testid="stRadio"] > div,
 [data-testid="stRadio"] div[role="radiogroup"] {
     width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
 }
 
 /* Ocultar el círculo nativo (el punto rojo/blanco) */
@@ -44,7 +51,8 @@ st.markdown("""
     padding: 12px 15px !important;
     border-radius: 12px !important;
     margin-bottom: 8px !important;
-    width: 100% !important; /* Estira la caja hasta el borde del panel */
+    width: 100% !important; 
+    max-width: 100% !important;
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
@@ -170,7 +178,7 @@ with st.sidebar:
 # --- 4. MOTOR GRÁFICO PERSONALIZADO (Burbujas Moradas) ---
 def renderizar_mensaje(rol, texto):
     if rol == "user":
-        # Burbuja del usuario: Morado vibrante degradado (Estilo iMessage premium)
+        # Burbuja del usuario: Morado vibrante degradado
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-end; width: 100%; margin-bottom: 20px;">
     <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(109, 40, 217, 0.9)); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px 20px 4px 20px; padding: 10px 16px; max-width: 75%; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3); backdrop-filter: blur(16px); font-weight: 400;">
@@ -179,7 +187,7 @@ def renderizar_mensaje(rol, texto):
 </div>
 """, unsafe_allow_html=True)
     else:
-        # Burbuja de Neura: Cristal lila transparente (Se adapta al modo claro/oscuro)
+        # Burbuja de Neura: Cristal lila transparente
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 20px;">
     <div style="background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 20px 20px 20px 4px; padding: 10px 16px; max-width: 75%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); backdrop-filter: blur(16px); font-weight: 400;">
