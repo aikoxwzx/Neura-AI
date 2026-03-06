@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import re
 from groq import Groq
 
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo - Carga Ultra-Suave) ---
@@ -109,8 +110,21 @@ except KeyError:
     st.error("Error técnico: Falta FIREBASE_API_KEY en Streamlit Secrets.")
     st.stop()
 
-# URL extraída de tu captura de pantalla
 FIREBASE_DB_URL = "https://neura-ai-2026-default-rtdb.europe-west1.firebasedatabase.app"
+
+# Validador de contraseñas (sincronizado con tus reglas de Firebase)
+def validar_contrasena(password):
+    if len(password) < 6:
+        return False, "La contraseña debe tener al menos 6 caracteres."
+    if not re.search(r"[A-Z]", password):
+        return False, "La contraseña debe contener al menos una mayúscula."
+    if not re.search(r"[a-z]", password):
+        return False, "La contraseña debe contener al menos una minúscula."
+    if not re.search(r"[0-9]", password):
+        return False, "La contraseña debe contener al menos un número."
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False, "La contraseña debe contener al menos un carácter especial."
+    return True, ""
 
 def registrar_usuario_firebase(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
@@ -124,7 +138,7 @@ def registrar_usuario_firebase(email, password):
         if error_msg == "EMAIL_EXISTS":
             return False, "Este correo ya está registrado."
         elif error_msg == "WEAK_PASSWORD":
-            return False, "La contraseña debe tener al menos 6 caracteres."
+            return False, "La contraseña es demasiado débil según las reglas del servidor."
         elif error_msg == "INVALID_EMAIL":
             return False, "El formato del correo es inválido."
         return False, error_msg
@@ -151,8 +165,9 @@ def cargar_chats_firebase(uid, token):
     return {}
 
 def guardar_chats_firebase(uid, token, chats):
+    chats_a_guardar = {titulo: mensajes for titulo, mensajes in chats.items() if len(mensajes) > 0}
     url = f"{FIREBASE_DB_URL}/usuarios/{uid}/chats.json?auth={token}"
-    requests.put(url, json=chats)
+    requests.put(url, json=chats_a_guardar)
 
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
@@ -181,13 +196,21 @@ if not st.session_state.autenticado:
                         st.session_state.id_token = token_o_msg
                         st.session_state.user_uid = uid
                         
-                        # Al iniciar sesión, descargamos los chats de Firebase
                         chats_guardados = cargar_chats_firebase(uid, token_o_msg)
                         if not chats_guardados:
-                            chats_guardados = {"Nuevo Chat": []}
+                            chats_guardados = {}
+                        
+                        base_nombre = "Nuevo Chat"
+                        nuevo_nombre = base_nombre
+                        contador = 1
+                        while nuevo_nombre in chats_guardados:
+                            nuevo_nombre = f"{base_nombre} ({contador})"
+                            contador += 1
+                            
+                        chats_guardados[nuevo_nombre] = []
                         
                         st.session_state.chats = chats_guardados
-                        st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
+                        st.session_state.chat_actual = nuevo_nombre
                         st.rerun()
                     else:
                         st.error(token_o_msg)
@@ -203,11 +226,15 @@ if not st.session_state.autenticado:
                     if pass_reg != pass_reg_conf:
                         st.error("Las contraseñas no coinciden.")
                     else:
-                        exito, mensaje = registrar_usuario_firebase(email_reg, pass_reg)
-                        if exito:
-                            st.success(mensaje + " Ahora puedes iniciar sesión en la pestaña anterior.")
+                        es_valida, msg_error = validar_contrasena(pass_reg)
+                        if not es_valida:
+                            st.error(msg_error)
                         else:
-                            st.error(mensaje)
+                            exito, mensaje = registrar_usuario_firebase(email_reg, pass_reg)
+                            if exito:
+                                st.success(mensaje + " Ahora puedes iniciar sesión en la pestaña anterior.")
+                            else:
+                                st.error(mensaje)
     
     st.stop()
 
@@ -261,7 +288,6 @@ with st.sidebar:
                 
             st.session_state.chats[nuevo_nombre] = []
             st.session_state.chat_actual = nuevo_nombre
-            # Guardar en Firebase al crear un chat nuevo
             guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
             st.rerun()
             
@@ -274,7 +300,6 @@ with st.sidebar:
                 st.session_state.chats = {"Nuevo Chat": []}
                 
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
-            # Guardar en Firebase al borrar un chat
             guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
             st.rerun()
 
@@ -324,7 +349,6 @@ if prompt:
     renderizar_mensaje("user", prompt)
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
     
-    # Guardamos en Firebase el mensaje del usuario
     guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
     
     mensajes_api = [{"role": "system", "content": instrucciones}]
@@ -365,7 +389,6 @@ if prompt:
                 }
                 st.session_state.chat_actual = nuevo_titulo
                 
-            # Guardamos en Firebase la respuesta de la IA (y el posible cambio de título)
             guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
             
             if es_primer_mensaje:
