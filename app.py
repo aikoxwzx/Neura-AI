@@ -1,25 +1,37 @@
 import streamlit as st
 from groq import Groq
 
-# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
+# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo - Pulido Máximo) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-st.markdown("""
+# Usamos st.html al principio para inyectar el CSS antes de renderizar, eliminando parpadeos.
+st.html("""
 <style>
-/* Capa morada semitransparente que se mezcla con el fondo nativo de Streamlit */
-.stApp {
+/* --- FORZADO DE FONDO ANTI-PARPADEO --- */
+/* Aplicamos el fondo degradado a todas las capas base para que no haya 'saltos' a blanco durante la carga */
+html, body, [data-testid="stAppViewContainer"], .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
+    background-attachment: fixed !important;
+    background-color: #0e1117 !important; /* Color de respaldo oscuro y suave */
+}
+
+/* Suavizado general de renderizado de texto */
+* {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
 }
 
 /* --- PANEL LATERAL (Visuales y fondo) --- */
-/* Eliminamos los anchos forzados (width, min-width) para no romper el motor nativo de Streamlit y evitar superposiciones */
+/* Mantenemos el comportamiento nativo de Streamlit para el ancho y suavizamos la transición visual */
 [data-testid="stSidebar"] {
     background-color: rgba(126, 34, 206, 0.05) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
-    /* Animación smooth y minimalista añadida aquí */
-    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), min-width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s ease !important;
+    /* Transición ultra-suave y sincronizada para el panel */
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                background-color 0.4s ease !important;
 }
 
 /* --- BOTONES DE CHAT (Estirados y con animación hover) --- */
@@ -52,6 +64,7 @@ div[data-testid="stRadio"] div[role="radiogroup"] label {
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
+    /* Transición smooth para los botones */
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
     border: 1px solid transparent !important;
 }
@@ -69,7 +82,7 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p {
     margin: 0 !important;
 }
 
-/* Efecto al pasar el ratón: se ilumina y se desliza ligeramente a la derecha */
+/* Efecto hover con micro-desplazamiento suave */
 div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
     background-color: rgba(168, 85, 247, 0.15) !important;
     transform: translateX(4px); 
@@ -92,13 +105,13 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     transition: all 0.3s ease-in-out !important;
 }
 
-/* Se ilumina cuando haces clic para escribir */
+/* Se ilumina suavemente cuando haces clic para escribir */
 .stChatInputContainer:focus-within {
     border: 1px solid rgba(168, 85, 247, 0.8) !important;
     box-shadow: 0 4px 20px rgba(168, 85, 247, 0.2) !important;
 }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 st.title("Neura AI")
 st.caption("Desarrollado y programado por Aitor")
