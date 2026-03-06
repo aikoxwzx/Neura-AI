@@ -2,7 +2,7 @@ import streamlit as st
 from groq import Groq
 
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
-st.set_page_config(page_title="Neura AI", page_icon="🌌", layout="centered")
+st.set_page_config(page_title="Neura AI", layout="centered")
 
 # CSS para el cristal líquido morado que se adapta al tema claro/oscuro
 st.markdown("""
@@ -31,7 +31,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🌌 Neura AI")
+st.title("Neura AI")
 st.caption("Desarrollado y programado por Aitor")
 st.divider()
 
@@ -63,15 +63,22 @@ with st.sidebar:
     st.title("Mis Chats")
     
     if "chats" not in st.session_state:
-        st.session_state.chats = {"Chat 1": []}
+        st.session_state.chats = {"Nuevo Chat": []}
     if "chat_actual" not in st.session_state:
-        st.session_state.chat_actual = "Chat 1"
+        st.session_state.chat_actual = "Nuevo Chat"
 
     # Botones en columnas para crear y DESTRUIR chats
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Nuevo", use_container_width=True):
-            nuevo_nombre = f"Chat {len(st.session_state.chats) + 1}"
+            # Asegurar que el nombre base sea único si se pulsa varias veces seguidas
+            base_nombre = "Nuevo Chat"
+            nuevo_nombre = base_nombre
+            contador = 1
+            while nuevo_nombre in st.session_state.chats:
+                nuevo_nombre = f"{base_nombre} ({contador})"
+                contador += 1
+                
             st.session_state.chats[nuevo_nombre] = []
             st.session_state.chat_actual = nuevo_nombre
             st.rerun()
@@ -83,7 +90,7 @@ with st.sidebar:
             
             # Si se borran todos los chats, crea uno de emergencia
             if len(st.session_state.chats) == 0:
-                st.session_state.chats = {"Chat 1": []}
+                st.session_state.chats = {"Nuevo Chat": []}
                 
             # Salta automáticamente al primer chat disponible
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
@@ -129,10 +136,13 @@ for mensaje in st.session_state.chats[st.session_state.chat_actual]:
     rol_correcto = "assistant" if mensaje["rol"] in ["bot", "assistant", "ia"] else "user"
     renderizar_mensaje(rol_correcto, mensaje["texto"])
 
-# --- 5. LÓGICA DE ENVÍO ---
+# --- 5. LÓGICA DE ENVÍO Y AUTO-RENOMBRAMIENTO ---
 prompt = st.chat_input("Escribe tu mensaje aquí...")
 
 if prompt:
+    # Verificamos si es el primer mensaje de este chat para renombrarlo luego
+    es_primer_mensaje = len(st.session_state.chats[st.session_state.chat_actual]) == 0
+
     # Mostramos mensaje nuevo del usuario
     renderizar_mensaje("user", prompt)
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
@@ -162,6 +172,32 @@ if prompt:
             
             # Rotamos la clave
             st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
+
+            # Si era el primer mensaje, renombramos el chat actual
+            if es_primer_mensaje:
+                # Cogemos los primeros 20 caracteres del prompt
+                nuevo_titulo = prompt[:20] + "..." if len(prompt) > 20 else prompt
+                
+                # Evitar nombres duplicados
+                base_titulo = nuevo_titulo
+                contador_titulo = 1
+                while nuevo_titulo in st.session_state.chats and nuevo_titulo != st.session_state.chat_actual:
+                    nuevo_titulo = f"{base_titulo} ({contador_titulo})"
+                    contador_titulo += 1
+                
+                # Reconstruimos el diccionario de chats para mantener el orden visual
+                nuevos_chats = {}
+                for clave, valor in st.session_state.chats.items():
+                    if clave == st.session_state.chat_actual:
+                        nuevos_chats[nuevo_titulo] = valor
+                    else:
+                        nuevos_chats[clave] = valor
+                
+                st.session_state.chats = nuevos_chats
+                st.session_state.chat_actual = nuevo_titulo
+                
+                # Recargamos la interfaz para que aparezca el nuevo nombre en la barra lateral
+                st.rerun()
             
         except Exception as e:
             st.error("Fallo en la conexión. Cambiando de servidor... Por favor, vuelve a enviar tu mensaje.")
