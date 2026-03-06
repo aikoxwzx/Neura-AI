@@ -11,23 +11,14 @@ st.markdown("""
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
 }
 
-/* --- PANEL LATERAL (Responsive + Animaciones) --- */
+/* --- PANEL LATERAL (Visuales y fondo) --- */
+/* Eliminamos los anchos forzados (width, min-width) para no romper el motor nativo de Streamlit y evitar superposiciones */
 [data-testid="stSidebar"] {
     background-color: rgba(126, 34, 206, 0.05) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
-    /* Animación fluida al abrir/cerrar el panel */
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), width 0.4s ease-in-out, min-width 0.4s ease-in-out !important;
-}
-
-/* Resoluciones de ordenador (Desktop): Auto-ajustable con "clamp" */
-@media (min-width: 768px) {
-    [data-testid="stSidebar"] {
-        /* Se adapta dinámicamente: mínimo 280px, ideal 25% de la pantalla, máximo 380px */
-        width: clamp(280px, 25vw, 380px) !important;
-        min-width: clamp(280px, 25vw, 380px) !important;
-    }
+    transition: background-color 0.3s ease !important;
 }
 
 /* --- BOTONES DE CHAT (Estirados y con animación hover) --- */
@@ -60,7 +51,6 @@ div[data-testid="stRadio"] div[role="radiogroup"] label {
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
-    /* Animación suave para los colores y el movimiento */
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
     border: 1px solid transparent !important;
 }
@@ -114,17 +104,15 @@ st.caption("Desarrollado y programado por Aitor")
 st.divider()
 
 # --- 2. SISTEMA DE ROTACIÓN DE API KEYS DINÁMICO ---
-# Captura automáticamente cualquier clave que empiece por "GROQ_API_KEY"
 api_keys = [val for key, val in st.secrets.items() if key.startswith("GROQ_API_KEY")]
 
 if not api_keys:
-    st.error("⚠️ Error técnico: No se encontraron claves API de Groq en los secretos de Streamlit.")
+    st.error("Error técnico: No se encontraron claves API de Groq en los secretos de Streamlit.")
     st.stop()
 
 if "api_index" not in st.session_state:
     st.session_state.api_index = 0
 
-# Asegurarse de que el índice no se salga de rango si se cambian las claves
 st.session_state.api_index = st.session_state.api_index % len(api_keys)
 client = Groq(api_key=api_keys[st.session_state.api_index])
 
@@ -172,7 +160,6 @@ with st.sidebar:
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
             st.rerun()
 
-    # Manejo seguro del radio button por si el chat actual fue borrado externamente
     chat_seleccionado = st.session_state.chat_actual if st.session_state.chat_actual in st.session_state.chats else list(st.session_state.chats.keys())[0]
     
     st.session_state.chat_actual = st.radio(
@@ -208,7 +195,6 @@ def renderizar_mensaje(rol, texto):
 </div>
 """, unsafe_allow_html=True)
 
-# Imprimir el historial de la conversación actual
 for mensaje in st.session_state.chats[st.session_state.chat_actual]:
     rol_correcto = "assistant" if mensaje["rol"] in ["bot", "assistant", "ia"] else "user"
     renderizar_mensaje(rol_correcto, mensaje["texto"])
@@ -223,14 +209,12 @@ if prompt:
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
     
     mensajes_api = [{"role": "system", "content": instrucciones}]
-    # Ampliado a 10 para que Neura tenga mejor memoria a corto plazo
     for m in st.session_state.chats[st.session_state.chat_actual][-10:]:
         rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
         mensajes_api.append({"role": rol_api, "content": m["texto"]})
     
-    # Solución al bug del puntero de lectura de archivos
     if archivo_subido is not None:
-        archivo_subido.seek(0) # Reinicia la lectura para no enviar textos vacíos en el segundo prompt
+        archivo_subido.seek(0)
         texto_archivo = archivo_subido.read().decode('utf-8')
         mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto:]\n{texto_archivo}"
 
@@ -247,18 +231,15 @@ if prompt:
             
             st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
 
-            # Lógica de renombramiento automático
             if es_primer_mensaje:
                 nuevo_titulo = prompt[:20] + "..." if len(prompt) > 20 else prompt
                 base_titulo = nuevo_titulo
                 contador_titulo = 1
                 
-                # Evitar colisiones de nombres
                 while nuevo_titulo in st.session_state.chats and nuevo_titulo != st.session_state.chat_actual:
                     nuevo_titulo = f"{base_titulo} ({contador_titulo})"
                     contador_titulo += 1
                 
-                # Reconstruir el diccionario manteniendo el orden
                 st.session_state.chats = {
                     (nuevo_titulo if k == st.session_state.chat_actual else k): v 
                     for k, v in st.session_state.chats.items()
@@ -267,5 +248,5 @@ if prompt:
                 st.rerun()
             
         except Exception as e:
-            st.error(f"⚠️ Error: {e}. Cambiando de servidor...")
+            st.error(f"Error: {e}. Cambiando de servidor... Intenta de nuevo.")
             st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
