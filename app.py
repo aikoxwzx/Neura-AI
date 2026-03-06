@@ -2,6 +2,9 @@ import streamlit as st
 import requests
 import re
 import random
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from groq import Groq
 
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo - Carga Ultra-Suave) ---
@@ -30,153 +33,107 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 
 /* --- BOTONES DE CHAT --- */
-[data-testid="stRadio"] > label {
-    display: none !important;
+[data-testid="stRadio"] > label { display: none !important; }
+div[data-testid="stRadio"], div[data-testid="stRadio"] > div, div[data-testid="stRadio"] div[role="radiogroup"] {
+    width: 100% !important; max-width: 100% !important; display: flex !important; flex-direction: column !important; align-items: stretch !important; 
 }
-
-div[data-testid="stRadio"],
-div[data-testid="stRadio"] > div,
-div[data-testid="stRadio"] div[role="radiogroup"] {
-    width: 100% !important;
-    max-width: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important; 
-}
-
-div[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
-    display: none !important; 
-}
-
+div[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child { display: none !important; }
 div[data-testid="stRadio"] div[role="radiogroup"] label {
-    background-color: rgba(255, 255, 255, 0.05) !important;
-    padding: 12px 15px !important;
-    border-radius: 12px !important;
-    margin-bottom: 8px !important;
-    width: 100% !important; 
-    max-width: 100% !important;
-    flex: 1 1 100% !important; 
-    display: flex !important;
-    box-sizing: border-box !important;
-    cursor: pointer !important;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-    border: 1px solid transparent !important;
+    background-color: rgba(255, 255, 255, 0.05) !important; padding: 12px 15px !important; border-radius: 12px !important; margin-bottom: 8px !important;
+    width: 100% !important; max-width: 100% !important; flex: 1 1 100% !important; display: flex !important; box-sizing: border-box !important;
+    cursor: pointer !important; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important; border: 1px solid transparent !important;
 }
-
-div[data-testid="stRadio"] div[role="radiogroup"] label div {
-    width: 100% !important;
-    display: block !important;
-}
-
-div[data-testid="stRadio"] div[role="radiogroup"] label p {
-    width: 100% !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-    margin: 0 !important;
-}
-
-div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
-    background-color: rgba(168, 85, 247, 0.15) !important;
-    transform: translateX(4px); 
-}
-
-div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
-    background-color: rgba(168, 85, 247, 0.3) !important;
-    border: 1px solid rgba(168, 85, 247, 0.5) !important;
-    box-shadow: 0 2px 10px rgba(168, 85, 247, 0.1) !important;
-}
+div[data-testid="stRadio"] div[role="radiogroup"] label div { width: 100% !important; display: block !important; }
+div[data-testid="stRadio"] div[role="radiogroup"] label p { width: 100% !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; margin: 0 !important; }
+div[data-testid="stRadio"] div[role="radiogroup"] label:hover { background-color: rgba(168, 85, 247, 0.15) !important; transform: translateX(4px); }
+div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) { background-color: rgba(168, 85, 247, 0.3) !important; border: 1px solid rgba(168, 85, 247, 0.5) !important; box-shadow: 0 2px 10px rgba(168, 85, 247, 0.1) !important; }
 
 /* --- CAJA DE INPUT DE TEXTO --- */
 .stChatInputContainer {
-    background-color: rgba(168, 85, 247, 0.05) !important;
-    backdrop-filter: blur(16px) !important;
-    border-radius: 20px !important;
-    border: 1px solid rgba(168, 85, 247, 0.3) !important;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
-    transition: all 0.3s ease-in-out !important;
+    background-color: rgba(168, 85, 247, 0.05) !important; backdrop-filter: blur(16px) !important; border-radius: 20px !important;
+    border: 1px solid rgba(168, 85, 247, 0.3) !important; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important; transition: all 0.3s ease-in-out !important;
 }
-
-.stChatInputContainer:focus-within {
-    border: 1px solid rgba(168, 85, 247, 0.8) !important;
-    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.2) !important;
-}
+.stChatInputContainer:focus-within { border: 1px solid rgba(168, 85, 247, 0.8) !important; box-shadow: 0 4px 20px rgba(168, 85, 247, 0.2) !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 2. SISTEMA DE AUTENTICACIÓN Y BASE DE DATOS (FIREBASE REST API) ---
 try:
     FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
+    EMAIL_REMITENTE = st.secrets["EMAIL_REMITENTE"]
+    EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
 except KeyError:
-    st.error("Error técnico: Falta FIREBASE_API_KEY en Streamlit Secrets.")
+    st.error("Error técnico: Faltan claves en Streamlit Secrets.")
     st.stop()
 
 FIREBASE_DB_URL = "https://neura-ai-2026-default-rtdb.europe-west1.firebasedatabase.app"
 
+def enviar_correo_mfa(destinatario, codigo):
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_REMITENTE
+        msg['To'] = destinatario
+        msg['Subject'] = "Tu código de seguridad de Neura AI"
+        
+        cuerpo = f"Hola,\n\nTu código de verificación en dos pasos para entrar a Neura AI es: {codigo}\n\nSi no has intentado iniciar sesión, por favor ignora este mensaje."
+        msg.attach(MIMEText(cuerpo, 'plain'))
+        
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_REMITENTE, EMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Error SMTP: {e}")
+        return False
+
 def validar_contrasena(password):
-    if len(password) < 6:
-        return False, "La contraseña debe tener al menos 6 caracteres."
-    if not re.search(r"[A-Z]", password):
-        return False, "La contraseña debe contener al menos una mayúscula."
-    if not re.search(r"[a-z]", password):
-        return False, "La contraseña debe contener al menos una minúscula."
-    if not re.search(r"[0-9]", password):
-        return False, "La contraseña debe contener al menos un número."
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        return False, "La contraseña debe contener al menos un carácter especial."
+    if len(password) < 6: return False, "La contraseña debe tener al menos 6 caracteres."
+    if not re.search(r"[A-Z]", password): return False, "La contraseña debe contener al menos una mayúscula."
+    if not re.search(r"[a-z]", password): return False, "La contraseña debe contener al menos una minúscula."
+    if not re.search(r"[0-9]", password): return False, "La contraseña debe contener al menos un número."
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password): return False, "La contraseña debe contener al menos un carácter especial."
     return True, ""
 
 def registrar_usuario_firebase(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
-    payload = {"email": email, "password": password, "returnSecureToken": True}
-    respuesta = requests.post(url, json=payload)
-    
-    if respuesta.status_code == 200:
-        return True, "Usuario registrado con éxito."
-    else:
-        error_msg = respuesta.json().get("error", {}).get("message", "Error desconocido")
-        if error_msg == "EMAIL_EXISTS": return False, "Este correo ya está registrado."
-        elif error_msg == "WEAK_PASSWORD": return False, "La contraseña es demasiado débil según las reglas del servidor."
-        elif error_msg == "INVALID_EMAIL": return False, "El formato del correo es inválido."
-        return False, error_msg
+    res = requests.post(url, json={"email": email, "password": password, "returnSecureToken": True})
+    if res.status_code == 200: return True, "Usuario registrado con éxito."
+    err = res.json().get("error", {}).get("message", "Error desconocido")
+    if err == "EMAIL_EXISTS": return False, "Este correo ya está registrado."
+    elif err == "INVALID_EMAIL": return False, "El formato del correo es inválido."
+    return False, err
 
 def login_usuario_firebase(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
-    payload = {"email": email, "password": password, "returnSecureToken": True}
-    respuesta = requests.post(url, json=payload)
-    
-    if respuesta.status_code == 200:
-        datos = respuesta.json()
+    res = requests.post(url, json={"email": email, "password": password, "returnSecureToken": True})
+    if res.status_code == 200:
+        datos = res.json()
         return True, datos['idToken'], datos['localId']
-    else:
-        error_msg = respuesta.json().get("error", {}).get("message", "Error desconocido")
-        if error_msg in ["INVALID_LOGIN_CREDENTIALS", "INVALID_PASSWORD", "EMAIL_NOT_FOUND"]:
-            return False, "Correo o contraseña incorrectos.", None
-        return False, error_msg, None
+    err = res.json().get("error", {}).get("message", "Error desconocido")
+    if err in ["INVALID_LOGIN_CREDENTIALS", "INVALID_PASSWORD", "EMAIL_NOT_FOUND"]:
+        return False, "Correo o contraseña incorrectos.", None
+    return False, err, None
 
 def enviar_reset_password(email):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
-    payload = {"requestType": "PASSWORD_RESET", "email": email}
-    res = requests.post(url, json=payload)
+    res = requests.post(url, json={"requestType": "PASSWORD_RESET", "email": email})
     return res.status_code == 200
 
 def borrar_cuenta_firebase(id_token):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:delete?key={FIREBASE_API_KEY}"
-    payload = {"idToken": id_token}
-    res = requests.post(url, json=payload)
+    res = requests.post(url, json={"idToken": id_token})
     return res.status_code == 200
 
 def cargar_chats_firebase(uid, token):
     url = f"{FIREBASE_DB_URL}/usuarios/{uid}/chats.json?auth={token}"
-    respuesta = requests.get(url)
-    if respuesta.status_code == 200 and respuesta.json() is not None:
-        return respuesta.json()
-    return {}
+    res = requests.get(url)
+    return res.json() if res.status_code == 200 and res.json() else {}
 
 def guardar_chats_firebase(uid, token, chats):
-    chats_a_guardar = {titulo: mensajes for titulo, mensajes in chats.items() if len(mensajes) > 0}
-    url = f"{FIREBASE_DB_URL}/usuarios/{uid}/chats.json?auth={token}"
-    requests.put(url, json=chats_a_guardar)
+    chats_a_guardar = {t: m for t, m in chats.items() if len(m) > 0}
+    requests.put(f"{FIREBASE_DB_URL}/usuarios/{uid}/chats.json?auth={token}", json=chats_a_guardar)
 
 # --- VARIABLES DE ESTADO ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
@@ -197,24 +154,20 @@ if not st.session_state.autenticado:
             st.write("Te enviaremos un enlace oficial para crear una nueva contraseña.")
             email_reset = st.text_input("Introduce tu correo electrónico")
             if st.button("Enviar enlace de recuperación", use_container_width=True):
-                if enviar_reset_password(email_reset):
-                    st.success("Se ha enviado un correo. Revisa tu bandeja de entrada.")
-                else:
-                    st.error("No se pudo enviar el correo. Verifica la dirección.")
-            if st.button("Volver al inicio"):
+                if enviar_reset_password(email_reset): st.success("Se ha enviado un correo. Revisa tu bandeja de entrada, sino aparece en la bandeja de spam.")
+                else: st.error("No se pudo enviar el correo. Verifica la dirección.")
+            if st.button("Volver al inicio", use_container_width=True):
                 st.session_state.olvido_pass = False
                 st.rerun()
 
-        # FLUJO 2: MFA (CÓDIGO DE 6 DÍGITOS)
+        # FLUJO 2: MFA (CÓDIGO DE 6 DÍGITOS REAL)
         elif st.session_state.esperando_mfa:
             st.subheader("Verificación en dos pasos")
             st.write(f"Introduce el código enviado a {st.session_state.temp_email}")
-            st.info(f"DEBUG: Tu código es {st.session_state.codigo_mfa}")
             
             codigo_usuario = st.text_input("Código de seguridad", max_chars=6)
             if st.button("Verificar", use_container_width=True):
                 if codigo_usuario == st.session_state.codigo_mfa:
-                    # Validado: Cargamos los datos en la sesión real
                     st.session_state.autenticado = True
                     st.session_state.usuario_email = st.session_state.temp_email
                     st.session_state.id_token = st.session_state.temp_token
@@ -235,9 +188,8 @@ if not st.session_state.autenticado:
                     st.session_state.chat_actual = nuevo_nombre
                     st.session_state.esperando_mfa = False
                     st.rerun()
-                else:
-                    st.error("El código es incorrecto.")
-            if st.button("Cancelar"):
+                else: st.error("El código es incorrecto.")
+            if st.button("Cancelar", use_container_width=True):
                 st.session_state.esperando_mfa = False
                 st.rerun()
 
@@ -254,15 +206,18 @@ if not st.session_state.autenticado:
                     if submit_login:
                         exito, token_o_msg, uid = login_usuario_firebase(email_login, pass_login)
                         if exito:
-                            # Preparamos el entorno para el MFA en lugar de entrar directo
-                            st.session_state.esperando_mfa = True
-                            st.session_state.temp_email = email_login
-                            st.session_state.temp_token = token_o_msg
-                            st.session_state.temp_uid = uid
-                            st.session_state.codigo_mfa = str(random.randint(100000, 999999))
-                            st.rerun()
-                        else:
-                            st.error(token_o_msg)
+                            with st.spinner("Enviando código de seguridad..."):
+                                codigo_generado = str(random.randint(100000, 999999))
+                                if enviar_correo_mfa(email_login, codigo_generado):
+                                    st.session_state.esperando_mfa = True
+                                    st.session_state.temp_email = email_login
+                                    st.session_state.temp_token = token_o_msg
+                                    st.session_state.temp_uid = uid
+                                    st.session_state.codigo_mfa = codigo_generado
+                                    st.rerun()
+                                else:
+                                    st.error("Error al enviar el correo. Revisa la configuración de SMTP.")
+                        else: st.error(token_o_msg)
                 
                 if st.button("¿Has olvidado la contraseña?", use_container_width=True):
                     st.session_state.olvido_pass = True
@@ -276,19 +231,14 @@ if not st.session_state.autenticado:
                     submit_reg = st.form_submit_button("Crear cuenta", use_container_width=True)
                     
                     if submit_reg:
-                        if pass_reg != pass_reg_conf:
-                            st.error("Las contraseñas no coinciden.")
+                        if pass_reg != pass_reg_conf: st.error("Las contraseñas no coinciden.")
                         else:
                             es_valida, msg_error = validar_contrasena(pass_reg)
-                            if not es_valida:
-                                st.error(msg_error)
+                            if not es_valida: st.error(msg_error)
                             else:
                                 exito, mensaje = registrar_usuario_firebase(email_reg, pass_reg)
-                                if exito:
-                                    st.success(mensaje + " Ahora puedes iniciar sesión en la pestaña anterior.")
-                                else:
-                                    st.error(mensaje)
-    
+                                if exito: st.success(mensaje + " Ahora puedes iniciar sesión.")
+                                else: st.error(mensaje)
     st.stop()
 
 # --- 3. SISTEMA PRINCIPAL DE NEURA AI ---
@@ -302,9 +252,7 @@ if not api_keys:
     st.error("Error técnico: No se encontraron claves API de Groq en los secretos de Streamlit.")
     st.stop()
 
-if "api_index" not in st.session_state:
-    st.session_state.api_index = 0
-
+if "api_index" not in st.session_state: st.session_state.api_index = 0
 st.session_state.api_index = st.session_state.api_index % len(api_keys)
 client = Groq(api_key=api_keys[st.session_state.api_index])
 
@@ -328,7 +276,6 @@ with st.sidebar:
         
     st.divider()
     
-    # MENÚ DE ELIMINACIÓN DE CUENTA
     with st.expander("Configuración de Cuenta"):
         st.warning("Acción irreversible")
         if st.button("Eliminar mi cuenta definitivamente"):
@@ -337,8 +284,7 @@ with st.sidebar:
                 st.session_state.chats = {"Nuevo Chat": []}
                 st.success("Tu cuenta y credenciales han sido eliminadas.")
                 st.rerun()
-            else:
-                st.error("Por seguridad, debes cerrar sesión y volver a entrar antes de borrar tu cuenta.")
+            else: st.error("Por seguridad, debes cerrar sesión y volver a entrar antes de borrar tu cuenta.")
 
     st.divider()
     st.title("Mis Chats")
@@ -352,7 +298,6 @@ with st.sidebar:
             while nuevo_nombre in st.session_state.chats:
                 nuevo_nombre = f"{base_nombre} ({contador})"
                 contador += 1
-                
             st.session_state.chats[nuevo_nombre] = []
             st.session_state.chat_actual = nuevo_nombre
             guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
@@ -362,26 +307,17 @@ with st.sidebar:
         if st.button("Borrar", use_container_width=True):
             if st.session_state.chat_actual in st.session_state.chats:
                 del st.session_state.chats[st.session_state.chat_actual]
-            
-            if not st.session_state.chats:
-                st.session_state.chats = {"Nuevo Chat": []}
-                
+            if not st.session_state.chats: st.session_state.chats = {"Nuevo Chat": []}
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
             guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
             st.rerun()
 
     chat_seleccionado = st.session_state.chat_actual if st.session_state.chat_actual in st.session_state.chats else list(st.session_state.chats.keys())[0]
-    
-    st.session_state.chat_actual = st.radio(
-        "Selecciona una conversación:", 
-        list(st.session_state.chats.keys()), 
-        index=list(st.session_state.chats.keys()).index(chat_seleccionado)
-    )
+    st.session_state.chat_actual = st.radio("Selecciona una conversación:", list(st.session_state.chats.keys()), index=list(st.session_state.chats.keys()).index(chat_seleccionado))
 
     st.divider()
     st.markdown("### Analizar Archivo")
     archivo_subido = st.file_uploader("Sube texto", type=["txt"])
-    
     st.divider()
     st.caption(f"Servidor en uso: {st.session_state.api_index + 1} de {len(api_keys)}")
     st.caption("NeuraAI")
@@ -412,10 +348,8 @@ prompt = st.chat_input("Escribe tu mensaje aquí...")
 
 if prompt:
     es_primer_mensaje = len(st.session_state.chats[st.session_state.chat_actual]) == 0
-
     renderizar_mensaje("user", prompt)
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
-    
     guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
     
     mensajes_api = [{"role": "system", "content": instrucciones}]
@@ -430,36 +364,25 @@ if prompt:
 
     with st.spinner("Procesando..."):
         try:
-            response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=mensajes_api
-            )
+            response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=mensajes_api)
             respuesta_texto = response.choices[0].message.content
             
             renderizar_mensaje("assistant", respuesta_texto)
             st.session_state.chats[st.session_state.chat_actual].append({"rol": "assistant", "texto": respuesta_texto})
-            
             st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
 
             if es_primer_mensaje:
                 nuevo_titulo = prompt[:20] + "..." if len(prompt) > 20 else prompt
                 base_titulo = nuevo_titulo
                 contador_titulo = 1
-                
                 while nuevo_titulo in st.session_state.chats and nuevo_titulo != st.session_state.chat_actual:
                     nuevo_titulo = f"{base_titulo} ({contador_titulo})"
                     contador_titulo += 1
-                
-                st.session_state.chats = {
-                    (nuevo_titulo if k == st.session_state.chat_actual else k): v 
-                    for k, v in st.session_state.chats.items()
-                }
+                st.session_state.chats = { (nuevo_titulo if k == st.session_state.chat_actual else k): v for k, v in st.session_state.chats.items() }
                 st.session_state.chat_actual = nuevo_titulo
                 
             guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
-            
-            if es_primer_mensaje:
-                st.rerun()
+            if es_primer_mensaje: st.rerun()
             
         except Exception as e:
             st.error(f"Error: {e}. Cambiando de servidor... Intenta de nuevo.")
