@@ -1,98 +1,74 @@
 import streamlit as st
 from groq import Groq
 
-# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Glassmorphism) ---
+# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Glassmorphism Avanzado) ---
 st.set_page_config(page_title="Neura AI", page_icon="🌌", layout="centered")
 
 css = """
 <style>
-/* Fondo general */
+/* Fondo general de la página */
 .stApp {
     background: linear-gradient(135deg, #0f172a 0%, #1e1e2f 100%);
     color: white;
 }
 
-/* Ocultar iconos de perfil */
+/* Ocultar iconos de perfil por completo */
 [data-testid="stChatMessageAvatar"] {
     display: none !important;
 }
+
+/* Reducir el hueco que dejan los avatares invisibles */
 .stChatMessage {
     gap: 0.5rem !important;
+    width: 100% !important;
 }
 
-/* Estilo Cristal para los mensajes */
+/* --- ESTILO CRISTAL (Glassmorphism Base) --- */
 [data-testid="stChatMessageContent"] {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 15px;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
-    color: #e2e8f0;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    padding: 12px 18px !important;
+    color: #e2e8f0 !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+    display: inline-block !important;
 }
 
-/* USUARIO: A la derecha y azul */
+/* --- USUARIO: A la DERECHA y Azul Cristal --- */
 div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) {
+    display: flex !important;
     flex-direction: row-reverse !important;
 }
+
 div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"] {
-    background-color: rgba(56, 189, 248, 0.1) !important; 
-    border-color: rgba(56, 189, 248, 0.2);
-    border-bottom-right-radius: 2px; 
-    text-align: right;
-    margin-left: auto;
-    max-width: 80%;
+    background: rgba(56, 189, 248, 0.15) !important; 
+    border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    border-radius: 20px 20px 0px 20px !important; 
+    margin-left: auto !important; /* Empuja la burbuja a la derecha */
+    max-width: 75% !important;
+    text-align: left !important;
 }
 
-/* =========================================
-       1. TÚ (USUARIO) -> A LA DERECHA
-       ========================================= */
-    [data-testid="stChatMessage"]:has(.mensaje-usuario) {{
-        flex-direction: row-reverse !important; /* Mueve el avatar y el inicio a la Derecha */
-    }}
-    
-    [data-testid="stChatMessage"]:has(.mensaje-usuario) [data-testid="stChatMessageContent"] {{
-        max-width: 65% !important; 
-        
-        /* Efecto Liquid Glass 3D VERDE */
-        background: linear-gradient(135deg, rgba(220, 248, 198, 0.85) 0%, rgba(180, 230, 150, 0.4) 100%) !important;
-        backdrop-filter: blur(16px) saturate(180%) !important;
-        -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.9) !important;
-        border-left: 1px solid rgba(255, 255, 255, 0.9) !important;
-        border-right: 1px solid rgba(0, 0, 0, 0.1) !important;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
-        border-radius: 20px 4px 20px 20px !important; /* Punta de chat a la DERECHA */
-        padding: 12px 18px !important;
-        /* Sombra hiperrealista: exterior oscura + luz interior + sombra interior */
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), inset 0 2px 6px rgba(255, 255, 255, 0.8), inset 0 -2px 6px rgba(0, 0, 0, 0.05) !important;
-        color: #111b21 !important;
-        animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-    }}
-
-    /* =========================================
-       2. LA IA -> A LA IZQUIERDA
-       ========================================= */
-    [data-testid="stChatMessage"]:has(.mensaje-ia) {{
-        flex-direction: row !important; /* Mantiene el avatar y el inicio a la Izquierda */
-    }}
-    
-    [data-testid="stChatMessage"]:has(.mensaje-ia) [data-testid="stChatMessageContent"] {{
-        max-width: 65% !important;
-
+/* --- IA (Neura): A la IZQUIERDA y Gris Cristal --- */
+div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) {
+    display: flex !important;
+    flex-direction: row !important;
 }
+
 div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) [data-testid="stChatMessageContent"] {
-    background-color: rgba(255, 255, 255, 0.05) !important; 
-    border-bottom-left-radius: 2px; 
-    margin-right: auto;
-    max-width: 80%;
+    background: rgba(255, 255, 255, 0.05) !important; 
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 20px 20px 20px 0px !important; 
+    margin-right: auto !important; /* Empuja la burbuja a la izquierda */
+    max-width: 75% !important;
 }
 
+/* Textos adaptados al modo oscuro */
 h1, h2, h3, p, span { color: #f8fafc !important; }
 </style>
 """
 st.markdown(css, unsafe_allow_html=True)
 
-st.title("🌌 Neura AI")
+st.title("🌌 Neura AI (Powered by Groq ⚡)")
 st.caption("Desarrollado y programado por Aitor")
 st.divider()
 
@@ -146,7 +122,7 @@ with st.sidebar:
     
     st.divider()
     st.caption(f"🔧 API en uso: Servidor {st.session_state.api_index + 1}")
-    st.caption("Aitor")
+    st.caption("Aitor | Ciberseguridad")
 
 # --- 4. HISTORIAL DE CHAT ---
 for mensaje in st.session_state.chats[st.session_state.chat_actual]:
@@ -189,5 +165,4 @@ if prompt:
             except Exception as e:
                 # Si falla, rotamos y avisamos
                 st.error("⚠️ Fallo en la conexión o cuota agotada. Cambiando de servidor... Por favor, vuelve a enviar tu mensaje.")
-                # st.code(f"Error técnico: {e}") # Descomenta esto si quieres ver el error exacto en pantalla
                 st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
