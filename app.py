@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 from groq import Groq
 
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo - Carga Ultra-Suave) ---
@@ -122,11 +123,97 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
 </style>
 """, unsafe_allow_html=True)
 
+# --- 2. SISTEMA DE AUTENTICACIÓN (FIREBASE REST API) ---
+try:
+    FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
+except KeyError:
+    st.error("Error técnico: Falta FIREBASE_API_KEY en Streamlit Secrets.")
+    st.stop()
+
+def registrar_usuario_firebase(email, password):
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
+    payload = {"email": email, "password": password, "returnSecureToken": True}
+    respuesta = requests.post(url, json=payload)
+    
+    if respuesta.status_code == 200:
+        return True, "Usuario registrado con éxito."
+    else:
+        error_msg = respuesta.json().get("error", {}).get("message", "Error desconocido")
+        if error_msg == "EMAIL_EXISTS":
+            return False, "Este correo ya está registrado."
+        elif error_msg == "WEAK_PASSWORD":
+            return False, "La contraseña debe tener al menos 6 caracteres."
+        elif error_msg == "INVALID_EMAIL":
+            return False, "El formato del correo es inválido."
+        return False, error_msg
+
+def login_usuario_firebase(email, password):
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
+    payload = {"email": email, "password": password, "returnSecureToken": True}
+    respuesta = requests.post(url, json=payload)
+    
+    if respuesta.status_code == 200:
+        datos = respuesta.json()
+        return True, datos['idToken']
+    else:
+        error_msg = respuesta.json().get("error", {}).get("message", "Error desconocido")
+        if error_msg in ["INVALID_LOGIN_CREDENTIALS", "INVALID_PASSWORD", "EMAIL_NOT_FOUND"]:
+            return False, "Correo o contraseña incorrectos."
+        return False, error_msg
+
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+
+# --- PANTALLA DE LOGIN / REGISTRO ---
+if not st.session_state.autenticado:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.title("Neura AI")
+        st.caption("Por favor, identifícate para acceder al sistema.")
+        
+        tab_login, tab_registro = st.tabs(["Iniciar Sesión", "Registrarse"])
+        
+        with tab_login:
+            with st.form("form_login"):
+                email_login = st.text_input("Correo electrónico")
+                pass_login = st.text_input("Contraseña", type="password")
+                submit_login = st.form_submit_button("Entrar", use_container_width=True)
+                
+                if submit_login:
+                    exito, mensaje_o_token = login_usuario_firebase(email_login, pass_login)
+                    if exito:
+                        st.session_state.autenticado = True
+                        st.session_state.usuario_email = email_login
+                        st.rerun()
+                    else:
+                        st.error(mensaje_o_token)
+                        
+        with tab_registro:
+            with st.form("form_registro"):
+                email_reg = st.text_input("Nuevo Correo")
+                pass_reg = st.text_input("Nueva Contraseña", type="password")
+                pass_reg_conf = st.text_input("Confirmar Contraseña", type="password")
+                submit_reg = st.form_submit_button("Crear cuenta", use_container_width=True)
+                
+                if submit_reg:
+                    if pass_reg != pass_reg_conf:
+                        st.error("Las contraseñas no coinciden.")
+                    else:
+                        exito, mensaje = registrar_usuario_firebase(email_reg, pass_reg)
+                        if exito:
+                            st.success(mensaje + " Ahora puedes iniciar sesión en la pestaña anterior.")
+                        else:
+                            st.error(mensaje)
+    
+    # Detenemos la carga del resto de la app si no hay sesión iniciada
+    st.stop()
+
+# --- 3. SISTEMA PRINCIPAL DE NEURA AI ---
 st.title("Neura AI")
 st.caption("Desarrollado y programado por Aitor")
 st.divider()
 
-# --- 2. SISTEMA DE ROTACIÓN DE API KEYS DINÁMICO ---
 api_keys = [val for key, val in st.secrets.items() if key.startswith("GROQ_API_KEY")]
 
 if not api_keys:
@@ -150,8 +237,13 @@ No digas tu nombre en todos los chats.
 Si te preguntan te llamas Neura.
 """
 
-# --- 3. BARRA LATERAL ---
 with st.sidebar:
+    st.write(f"Usuario: {st.session_state.usuario_email}")
+    if st.button("Cerrar Sesión", use_container_width=True):
+        st.session_state.autenticado = False
+        st.rerun()
+        
+    st.divider()
     st.title("Mis Chats")
     
     if "chats" not in st.session_state:
@@ -200,7 +292,6 @@ with st.sidebar:
     st.caption(f"Servidor en uso: {st.session_state.api_index + 1} de {len(api_keys)}")
     st.caption("NeuraAI")
 
-# --- 4. MOTOR GRÁFICO PERSONALIZADO ---
 def renderizar_mensaje(rol, texto):
     if rol == "user":
         st.markdown(f"""
@@ -223,7 +314,6 @@ for mensaje in st.session_state.chats[st.session_state.chat_actual]:
     rol_correcto = "assistant" if mensaje["rol"] in ["bot", "assistant", "ia"] else "user"
     renderizar_mensaje(rol_correcto, mensaje["texto"])
 
-# --- 5. LÓGICA DE ENVÍO Y AUTO-RENOMBRAMIENTO ---
 prompt = st.chat_input("Escribe tu mensaje aquí...")
 
 if prompt:
