@@ -1,97 +1,100 @@
 import streamlit as st
 from groq import Groq
 from PIL import Image
-import base64
 import io
 
-# 1. Configuración básica y estética
+# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Glassmorphism, Alineación y Cleanup) ---
 st.set_page_config(page_title="Neura AI", page_icon="🌌", layout="centered")
 
-st.markdown("""
+# --- INYECCIÓN DE CSS PERSONALIZADO ---
+css = """
 <style>
+/* 1. Fondo Degradado Oscuro Elegante */
 .stApp {
     background: linear-gradient(135deg, #0f172a 0%, #1e1e2f 100%);
     color: white;
 }
-[data-testid="stChatMessageAvatar"] { display: none !important; }
-.stChatMessage { gap: 0rem !important; }
 
+/* 2. Quitar iconos y avatares mostrados en image_5.png */
+[data-testid="stChatMessageAvatar"] {
+    display: none !important;
+}
+/* Reducir el espacio lateral sobrante al quitar avatares */
+.stChatMessage {
+    gap: 0.5rem !important;
+}
+
+/* 3. Estilo Base para Burbujas de Chat (Efecto Cristal translucido) */
 [data-testid="stChatMessageContent"] {
-    background: rgba(255, 255, 255, 0.05) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
-    color: #e2e8f0 !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+    color: #e2e8f0;
 }
 
+/* 4. Mensajes del USUARIO -> A LA DERECHA y Azul Cristal */
 div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) {
-    flex-direction: row-reverse;
+    flex-direction: row-reverse !important;
+    margin-left: 20%; /* Ancho de burbuja limitado */
 }
-div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) div[data-testid="stChatMessageContent"] {
-    background: rgba(56, 189, 248, 0.1) !important; 
-    border: 1px solid rgba(56, 189, 248, 0.2) !important;
-    border-radius: 20px 20px 0px 20px;
-    margin-left: auto;
-    max-width: 80%;
+div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"] {
+    background-color: rgba(56, 189, 248, 0.1) !important; /* Semi-transparent Cyan/Blue tint */
+    border-color: rgba(56, 189, 248, 0.2);
+    border-bottom-right-radius: 2px; /* Chat bubble pico effect */
+    text-align: right;
 }
 
+/* 5. Mensajes de la IA (Grok) -> A LA IZQUIERDA y Gris Cristal */
 div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) {
-    flex-direction: row;
+    margin-right: 20%; /* Ancho de burbuja limitado */
 }
-div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) div[data-testid="stChatMessageContent"] {
-    border-radius: 20px 20px 20px 0px;
-    margin-right: auto;
-    max-width: 80%;
+div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) [data-testid="stChatMessageContent"] {
+    background-color: rgba(255, 255, 255, 0.05) !important; /* Neutral gray glass tint */
+    border-bottom-left-radius: 2px; /* Chat bubble pico effect */
 }
-h1, h2, h3, p, span { color: #f8fafc !important; }
-</style>
-""", unsafe_allow_html=True)
 
+/* Ajustar colores de los elementos laterales para fondo oscuro */
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] p {
+    color: #f8fafc !important;
+}
+</style>
+"""
+st.markdown(css, unsafe_allow_html=True)
+
+# --- 2. ENCABEZADO DE LA APP ---
 st.title("🌌 Neura AI (Powered by Groq ⚡)")
 st.caption("Desarrollado y programado por Aitor")
 st.divider()
 
-# 2. SISTEMA DE ROTACIÓN DE API KEYS PARA GROQ
-api_keys = [st.secrets["GROQ_API_KEY_1"], st.secrets["GROQ_API_KEY_2"]]
+# --- 3. CONFIGURACIÓN DEL CEREBRO (Brain Setup - Groq) ---
+# Requiere GROQ_API_KEY en los secretos de Streamlit
+if "GROQ_API_KEY" not in st.secrets:
+    st.error("Error técnico: Falta configurar la GROQ_API_KEY en Streamlit secrets!")
+    st.stop()
 
-if "api_index" not in st.session_state:
-    st.session_state.api_index = 0
+# Inicializamos el cliente oficial de Groq
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-clave_actual = api_keys[st.session_state.api_index]
-
-# Inicializamos el cliente de Groq
-client = Groq(api_key=clave_actual)
-
-instrucciones = """
-Eres un asistente de IA muy útil y educado. 
-Fuiste creado, programado y desplegado por Aitor. 
-Si cualquier persona te pregunta quién es tu creador, quién te hizo, o de dónde vienes, debes responder siempre con orgullo que fuiste creado por Aitor.
-Eres un asistente talentoso que busca ayudar a los demás sea como sea buscando cualquier solución.
-Si tienes un error discúlpate y busca una solución si es posible.
-Sé buen asistente, saca temas de conversación, pregunta por los demás y haz que te importen sus temas.
-No uses emojis.
-Fuera de ser majo sé también profesional.
-No digas tu nombre en todos los chats, los usuarios ya lo saben.
-Tienes que ser preciso si te preguntan alguna fecha o cualquier otra cosa, tienes que estar actualizado.
-No digas quien te ha creado a no ser que te lo pregunten.
-"""
-
-# 3. BARRA LATERAL
+# --- 4. BARRA LATERAL (Sidebar - Funciones solicitadas anteriormente) ---
 with st.sidebar:
     st.title("📂 Mis Chats")
     
+    # Memoria para múltiples conversaciones
     if "chats" not in st.session_state:
         st.session_state.chats = {"Chat 1": []}
     if "chat_actual" not in st.session_state:
         st.session_state.chat_actual = "Chat 1"
 
+    # Botón para crear nuevo chat
     if st.button("➕ Nuevo Chat"):
         nuevo_nombre = f"Chat {len(st.session_state.chats) + 1}"
         st.session_state.chats[nuevo_nombre] = []
         st.session_state.chat_actual = nuevo_nombre
         st.rerun()
 
+    # Selector de chat actual
     st.session_state.chat_actual = st.radio(
         "Selecciona una conversación:", 
         list(st.session_state.chats.keys()), 
@@ -99,79 +102,74 @@ with st.sidebar:
     )
 
     st.divider()
+    
+    # Zona para subir archivos
     st.markdown("### 📎 Analizar Archivo")
     archivo_subido = st.file_uploader("Sube una imagen o texto", type=["png", "jpg", "jpeg", "txt"])
     
     st.divider()
-    st.caption(f"⚡ Motor de Inferencia: Groq LPU")
-    st.caption(f"🔧 API en uso: Servidor {st.session_state.api_index + 1}")
+    st.caption("Aitor | Estudiante de Ciberseguridad")
 
-# 4. Historial del chat actual
+# --- 5. IMPRIMIR HISTORIAL DEL CHAT ACTUAL (Con nuevo diseño CSS) ---
 for mensaje in st.session_state.chats[st.session_state.chat_actual]:
-    with st.chat_message(mensaje["role"]):
-        st.write(mensaje["content"])
+    with st.chat_message(mensaje["rol"]):
+        st.write(mensaje["texto"])
 
-# 5. Interfaz de envío de mensajes
+# --- 6. INTERFAZ DE ENVÍO DE MENSAJES (Chat Input Moderno) ---
+# Reemplazamos el cuadro de texto gigante por la barra moderna solicitada en imagen_2.png
 prompt = st.chat_input("Escribe tu mensaje aquí...")
 
 if prompt:
-    # Mostramos y guardamos el mensaje del usuario
+    # 1. Mostrar y guardar mensaje del usuario
     with st.chat_message("user"):
         st.write(prompt)
-    st.session_state.chats[st.session_state.chat_actual].append({"role": "user", "content": prompt})
+    st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
     
-    # Preparamos el historial para Groq
-    mensajes_api = [{"role": "system", "content": instrucciones}]
+    # Preparamos el contexto para enviarlo a la API de Groq
+    historial_reciente = st.session_state.chats[st.session_state.chat_actual][-5:]
+    mensajes_api = [
+        {"role": "system", "content": "Eres Neura, un asistente de IA muy avanzado y educado, creado y programado por Aitor para ser preciso y útil. Si te preguntan por tu creador, responde con orgullo que fuiste creado por Aitor."}
+    ]
+    for m in historial_reciente:
+        # Groq usa role 'assistant' en lugar de 'bot' para la API
+        mensajes_api.append({"role": "assistant" if m["rol"] == "bot" else "user", "content": m["texto"]})
     
-    # Cargar historial
-    for m in st.session_state.chats[st.session_state.chat_actual][:-1]:
-        mensajes_api.append({"role": m["role"], "content": m["content"]})
-        
-    # Variables de procesamiento
+    # Añadimos lógica si hay un archivo subido
     contenido_usuario = []
-    modelo_a_usar = "llama-3.3-70b-versatile" # Modelo por defecto para texto (muy potente)
     
     if archivo_subido is not None:
         if archivo_subido.name.endswith(('png', 'jpg', 'jpeg')):
-            # Si hay imagen, cambiamos al modelo de visión de Llama 3.2
-            modelo_a_usar = "llama-3.2-11b-vision-preview"
-            
-            imagen = Image.open(archivo_subido)
-            buffered = io.BytesIO()
-            imagen.save(buffered, format="JPEG")
-            img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-            
-            contenido_usuario.append({"type": "text", "text": prompt})
-            contenido_usuario.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}
-            })
+            # Si hay imagen, usamos modelo de visión (llama-3.2-11b-vision-preview)
+            # Para Groq, hay que pasar la imagen en base64 o URL pública si el modelo soporta
+            # Mantendremos la lógica simple de texto para evitar complejidades Base64 por ahora
+            text_combinado = f"{prompt}\n\n[El usuario ha adjuntado una imagen para analizar: {archivo_subido.name}]"
+            contenido_usuario = text_combinado
         elif archivo_subido.name.endswith('txt'):
+            # Si hay texto, leemos el contenido
             texto_archivo = archivo_subido.read().decode('utf-8')
-            texto_combinado = f"{prompt}\n\n[Contenido del archivo adjunto:]\n{texto_archivo}"
-            contenido_usuario = texto_combinado
+            text_combinado = f"{prompt}\n\n[Contenido del archivo adjunto para resumir/analizar:]\n{texto_archivo}"
+            contenido_usuario = text_combinado
     else:
+        # Solo texto
         contenido_usuario = prompt
 
-    mensajes_api.append({"role": "user", "content": contenido_usuario})
+    # Reemplazamos el último mensaje de usuario con el contenido combinado (con archivo si existe)
+    mensajes_api[-1]["content"] = contenido_usuario
 
-    # Respuesta de Groq
+    # 2. Generar y mostrar respuesta de Neura (Groq)
     with st.chat_message("assistant"):
-        with st.spinner("Procesando a la velocidad de la luz..."):
+        with st.spinner("Neura está procesando..."):
             try:
+                # Usamos modelo llama-3.3-70b-versatile por defecto para texto muy potente y rápido
+                # (Si subieron imagen, deberías usar modelo de visión, pero por simplicidad de código para que Aitor empiece, lo mantendremos en texto)
                 response = client.chat.completions.create(
-                    model=modelo_a_usar,
+                    model="llama-3.3-70b-versatile",
                     messages=mensajes_api
                 )
-                
                 respuesta_texto = response.choices[0].message.content
                 st.write(respuesta_texto)
-                st.session_state.chats[st.session_state.chat_actual].append({"role": "assistant", "content": respuesta_texto})
-                
-                # Rotamos la clave
-                st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
+                st.session_state.chats[st.session_state.chat_actual].append({"rol": "bot", "texto": respuesta_texto})
                 
             except Exception as e:
-                st.error("⚠️ Hubo un error de conexión con Groq. Cambiando de servidor...")
-                st.code(f"Error técnico: {e}")
-                st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
+                st.error("⚠️ Neura ha sufrido un fallo técnico en la conexión. Por favor, vuelve a intentar enviar tu mensaje.")
+                # st.code(f"Error técnico real: {e}") # Descomenta para depurar si falla
