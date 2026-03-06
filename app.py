@@ -78,22 +78,18 @@ def renderizar_mensaje(rol, texto):
         # Burbuja del usuario: Derecha y Azul
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-end; width: 100%; margin-bottom: 20px;">
-<div style="background-color: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 20px 20px 0px 20px; padding: 15px 20px; max-width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
-
-{texto}
-
-</div>
+    <div style="background-color: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 20px 20px 0px 20px; padding: 10px 15px; max-width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
+        {texto}
+    </div>
 </div>
 """, unsafe_allow_html=True)
     else:
         # Burbuja de Neura: Izquierda y Gris
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 20px;">
-<div style="background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px 20px 20px 0px; padding: 15px 20px; max-width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
-
-{texto}
-
-</div>
+    <div style="background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px 20px 20px 0px; padding: 10px 15px; max-width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
+        {texto}
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
