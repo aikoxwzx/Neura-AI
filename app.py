@@ -154,7 +154,7 @@ if not st.session_state.autenticado:
             st.write("Te enviaremos un enlace oficial para crear una nueva contraseña.")
             email_reset = st.text_input("Introduce tu correo electrónico")
             if st.button("Enviar enlace de recuperación", use_container_width=True):
-                if enviar_reset_password(email_reset): st.success("Se ha enviado un correo. Revisa tu bandeja de entrada, sino aparece en la bandeja de spam.")
+                if enviar_reset_password(email_reset): st.success("Se ha enviado un correo. Revisa tu bandeja de entrada, si no aparece revisa en la bandeja de spam.")
                 else: st.error("No se pudo enviar el correo. Verifica la dirección.")
             if st.button("Volver al inicio", use_container_width=True):
                 st.session_state.olvido_pass = False
