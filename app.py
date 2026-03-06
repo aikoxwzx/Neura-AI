@@ -1,68 +1,71 @@
 import streamlit as st
 from groq import Groq
 
-# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Glassmorphism Avanzado) ---
+# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Glassmorphism Definitivo) ---
 st.set_page_config(page_title="Neura AI", page_icon="🌌", layout="centered")
 
 css = """
 <style>
-/* Fondo general de la página */
+/* Fondo general oscuro */
 .stApp {
     background: linear-gradient(135deg, #0f172a 0%, #1e1e2f 100%);
     color: white;
 }
 
-/* Ocultar iconos de perfil por completo */
+/* 1. Ocultar iconos de perfil para dejarlo limpio */
 [data-testid="stChatMessageAvatar"] {
     display: none !important;
 }
 
-/* Reducir el hueco que dejan los avatares invisibles */
-.stChatMessage {
-    gap: 0.5rem !important;
+/* 2. Forzar que el contenedor principal ocupe todo el ancho */
+[data-testid="stChatMessage"] {
     width: 100% !important;
+    background-color: transparent !important;
 }
 
-/* --- ESTILO CRISTAL (Glassmorphism Base) --- */
+/* 3. Estructura base de TODAS las burbujas (Efecto Cristal) */
 [data-testid="stChatMessageContent"] {
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
     padding: 12px 18px !important;
+    border-radius: 15px !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
     color: #e2e8f0 !important;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
-    display: inline-block !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+    flex-grow: 0 !important; /* Vital para que la burbuja no se estire de lado a lado */
 }
 
-/* --- USUARIO: A la DERECHA y Azul Cristal --- */
-div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) {
-    display: flex !important;
+/* =========================================
+   4. TÚ (USUARIO) -> A LA DERECHA
+   ========================================= */
+/* Usamos el truco del 'has' buscando nuestra marca HTML invisible */
+[data-testid="stChatMessage"]:has(.marca-usuario) {
     flex-direction: row-reverse !important;
 }
 
-div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"] {
-    background: rgba(56, 189, 248, 0.15) !important; 
+[data-testid="stChatMessage"]:has(.marca-usuario) [data-testid="stChatMessageContent"] {
+    background-color: rgba(56, 189, 248, 0.15) !important; 
     border: 1px solid rgba(56, 189, 248, 0.3) !important;
-    border-radius: 20px 20px 0px 20px !important; 
-    margin-left: auto !important; /* Empuja la burbuja a la derecha */
+    border-bottom-right-radius: 2px !important; 
+    margin-left: auto !important; /* Esto es lo que lo empuja a la derecha */
     max-width: 75% !important;
-    text-align: left !important;
 }
 
-/* --- IA (Neura): A la IZQUIERDA y Gris Cristal --- */
-div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) {
-    display: flex !important;
+/* =========================================
+   5. LA IA (NEURA) -> A LA IZQUIERDA
+   ========================================= */
+[data-testid="stChatMessage"]:has(.marca-ia) {
     flex-direction: row !important;
 }
 
-div[data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) [data-testid="stChatMessageContent"] {
-    background: rgba(255, 255, 255, 0.05) !important; 
+[data-testid="stChatMessage"]:has(.marca-ia) [data-testid="stChatMessageContent"] {
+    background-color: rgba(255, 255, 255, 0.05) !important; 
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 20px 20px 20px 0px !important; 
-    margin-right: auto !important; /* Empuja la burbuja a la izquierda */
+    border-bottom-left-radius: 2px !important; 
+    margin-right: auto !important; /* Esto es lo que lo empuja a la izquierda */
     max-width: 75% !important;
 }
 
-/* Textos adaptados al modo oscuro */
+/* Ajustes de color de texto */
 h1, h2, h3, p, span { color: #f8fafc !important; }
 </style>
 """
@@ -124,30 +127,37 @@ with st.sidebar:
     st.caption(f"🔧 API en uso: Servidor {st.session_state.api_index + 1}")
     st.caption("Aitor | Ciberseguridad")
 
-# --- 4. HISTORIAL DE CHAT ---
+# --- 4. HISTORIAL DE CHAT (Inyectando marcas invisibles) ---
 for mensaje in st.session_state.chats[st.session_state.chat_actual]:
     with st.chat_message(mensaje["rol"]):
-        st.write(mensaje["texto"])
+        if mensaje["rol"] == "user":
+            # Imprime el texto junto a una etiqueta HTML invisible para engañar al CSS
+            st.markdown(f"<span class='marca-usuario'></span>{mensaje['texto']}", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<span class='marca-ia'></span>{mensaje['texto']}", unsafe_allow_html=True)
 
 # --- 5. LÓGICA DE ENVÍO Y ROTACIÓN ---
 prompt = st.chat_input("Escribe tu mensaje aquí...")
 
 if prompt:
-    # Guardamos mensaje del usuario
+    # 1. Guardamos e imprimimos el mensaje del usuario con su marca
     with st.chat_message("user"):
-        st.write(prompt)
+        st.markdown(f"<span class='marca-usuario'></span>{prompt}", unsafe_allow_html=True)
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
     
-    # Preparamos el historial para Groq
+    # 2. Preparamos el historial para Groq
     mensajes_api = [{"role": "system", "content": instrucciones}]
     for m in st.session_state.chats[st.session_state.chat_actual][-5:]:
-        mensajes_api.append({"role": "assistant" if m["rol"] == "bot" else "user", "content": m["texto"]})
+        # Adaptamos "bot" o "assistant" al formato que entiende Groq
+        rol_api = "assistant" if m["rol"] in ["bot", "assistant"] else "user"
+        mensajes_api.append({"role": rol_api, "content": m["texto"]})
     
+    # Si hay un archivo subido, lo unimos al mensaje
     if archivo_subido is not None:
         texto_archivo = archivo_subido.read().decode('utf-8')
         mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto:]\n{texto_archivo}"
 
-    # Respuesta de IA y manejo de errores
+    # 3. Respuesta de IA y manejo de errores
     with st.chat_message("assistant"):
         with st.spinner("Procesando a velocidad extrema..."):
             try:
@@ -156,8 +166,10 @@ if prompt:
                     messages=mensajes_api
                 )
                 respuesta_texto = response.choices[0].message.content
-                st.write(respuesta_texto)
-                st.session_state.chats[st.session_state.chat_actual].append({"rol": "bot", "texto": respuesta_texto})
+                
+                # Imprimimos la respuesta de Neura con la marca de IA invisible
+                st.markdown(f"<span class='marca-ia'></span>{respuesta_texto}", unsafe_allow_html=True)
+                st.session_state.chats[st.session_state.chat_actual].append({"rol": "assistant", "texto": respuesta_texto})
                 
                 # Si todo va bien, rotamos la clave para el próximo uso
                 st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
