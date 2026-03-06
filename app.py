@@ -1,37 +1,47 @@
 import streamlit as st
 from groq import Groq
 
-# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo - Pulido Máximo) ---
+# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo - Carga Ultra-Suave) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-# Usamos st.html al principio para inyectar el CSS antes de renderizar, eliminando parpadeos.
-st.html("""
+# Inyectamos el CSS al principio del todo para eliminar el parpadeo inicial y configurar animaciones
+st.markdown("""
 <style>
-/* --- FORZADO DE FONDO ANTI-PARPADEO --- */
-/* Aplicamos el fondo degradado a todas las capas base para que no haya 'saltos' a blanco durante la carga */
+/* --- ELIMINACIÓN DE PARPADEO Y FORZADO DE FONDO --- */
+/* Aplicamos el fondo degradado a todas las capas base para una carga invisible */
 html, body, [data-testid="stAppViewContainer"], .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
     background-attachment: fixed !important;
     background-color: #0e1117 !important; /* Color de respaldo oscuro y suave */
 }
 
-/* Suavizado general de renderizado de texto */
+/* Suavizado general de renderizado de texto para mayor fluidez visual */
 * {
     -webkit-font-smoothing: antialiased !important;
     -moz-osx-font-smoothing: grayscale !important;
 }
 
-/* --- PANEL LATERAL (Visuales y fondo) --- */
-/* Mantenemos el comportamiento nativo de Streamlit para el ancho y suavizamos la transición visual */
+/* --- PANEL LATERAL (Visuales y Animación Smooth Total) --- */
+/* Configuramos la animación suave tanto para la apertura como para el cierre */
 [data-testid="stSidebar"] {
     background-color: rgba(126, 34, 206, 0.05) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
-    /* Transición ultra-suave y sincronizada para el panel */
+    
+    /* Animación smooth y minimalista aplicada a todas las propiedades de movimiento */
+    /* cubic-bezier(0.2, 0.8, 0.2, 1) asegura un inicio rápido y un frenado muy suave */
     transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
                 width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                min-width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                margin-left 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
                 background-color 0.4s ease !important;
+}
+
+/* Aseguramos que el contenido principal también se anime suavemente al moverse el panel */
+[data-testid="stSidebarCollapsedControl"], [data-testid="stAppViewContainer"] {
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
+                margin-left 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
 }
 
 /* --- BOTONES DE CHAT (Estirados y con animación hover) --- */
@@ -64,7 +74,6 @@ div[data-testid="stRadio"] div[role="radiogroup"] label {
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
-    /* Transición smooth para los botones */
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
     border: 1px solid transparent !important;
 }
@@ -82,7 +91,7 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p {
     margin: 0 !important;
 }
 
-/* Efecto hover con micro-desplazamiento suave */
+/* Efecto al pasar el ratón: se ilumina y se desliza ligeramente a la derecha */
 div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
     background-color: rgba(168, 85, 247, 0.15) !important;
     transform: translateX(4px); 
@@ -105,13 +114,13 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     transition: all 0.3s ease-in-out !important;
 }
 
-/* Se ilumina suavemente cuando haces clic para escribir */
+/* Se ilumina cuando haces clic para escribir */
 .stChatInputContainer:focus-within {
     border: 1px solid rgba(168, 85, 247, 0.8) !important;
     box-shadow: 0 4px 20px rgba(168, 85, 247, 0.2) !important;
 }
 </style>
-""")
+""", unsafe_allow_html=True)
 
 st.title("Neura AI")
 st.caption("Desarrollado y programado por Aitor")
@@ -138,6 +147,7 @@ Busca ayudar sea como sea. Si cometes un error, discúlpate.
 Saca temas de conversación, pregunta por los demás.
 No uses emojis y mantén un tono profesional.
 No digas tu nombre en todos los chats.
+Si te preguntan te llamas Neura.
 """
 
 # --- 3. BARRA LATERAL ---
