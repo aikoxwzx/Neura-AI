@@ -18,6 +18,9 @@ st.markdown("""
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
+/* ESTAS SON LAS LÍNEAS NUEVAS PARA ENSANCHARLO */
+    min-width: 380px !important;
+    max-width: 380px !important;
 }
 
 /* ------------------------------------------------------------------
