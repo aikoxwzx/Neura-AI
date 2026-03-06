@@ -5,47 +5,29 @@ from groq import Groq
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo - Carga Ultra-Suave) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-# Inyectamos el CSS al principio del todo para eliminar el parpadeo inicial y configurar animaciones
 st.markdown("""
 <style>
 /* --- ELIMINACIÓN DE PARPADEO Y FORZADO DE FONDO --- */
-/* Aplicamos el fondo degradado a todas las capas base para una carga invisible */
 html, body, [data-testid="stAppViewContainer"], .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
     background-attachment: fixed !important;
-    background-color: #0e1117 !important; /* Color de respaldo oscuro y suave */
+    background-color: #0e1117 !important; 
 }
 
-/* Suavizado general de renderizado de texto para mayor fluidez visual */
 * {
     -webkit-font-smoothing: antialiased !important;
     -moz-osx-font-smoothing: grayscale !important;
 }
 
-/* --- PANEL LATERAL (Visuales y Animación Smooth Total) --- */
-/* Configuramos la animación suave tanto para la apertura como para el cierre */
+/* --- PANEL LATERAL (Visuales sin romper el layout) --- */
 [data-testid="stSidebar"] {
     background-color: rgba(126, 34, 206, 0.05) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
-    
-    /* Animación smooth y minimalista aplicada a todas las propiedades de movimiento */
-    /* cubic-bezier(0.2, 0.8, 0.2, 1) asegura un inicio rápido y un frenado muy suave */
-    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
-                width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
-                min-width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
-                margin-left 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
-                background-color 0.4s ease !important;
 }
 
-/* Aseguramos que el contenido principal también se anime suavemente al moverse el panel */
-[data-testid="stSidebarCollapsedControl"], [data-testid="stAppViewContainer"] {
-    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
-                margin-left 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
-}
-
-/* --- BOTONES DE CHAT (Estirados y con animación hover) --- */
+/* --- BOTONES DE CHAT --- */
 [data-testid="stRadio"] > label {
     display: none !important;
 }
@@ -92,20 +74,18 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p {
     margin: 0 !important;
 }
 
-/* Efecto al pasar el ratón: se ilumina y se desliza ligeramente a la derecha */
 div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
     background-color: rgba(168, 85, 247, 0.15) !important;
     transform: translateX(4px); 
 }
 
-/* Chat seleccionado */
 div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     background-color: rgba(168, 85, 247, 0.3) !important;
     border: 1px solid rgba(168, 85, 247, 0.5) !important;
     box-shadow: 0 2px 10px rgba(168, 85, 247, 0.1) !important;
 }
 
-/* --- CAJA DE INPUT DE TEXTO (Con animación al escribir) --- */
+/* --- CAJA DE INPUT DE TEXTO --- */
 .stChatInputContainer {
     background-color: rgba(168, 85, 247, 0.05) !important;
     backdrop-filter: blur(16px) !important;
@@ -115,7 +95,6 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     transition: all 0.3s ease-in-out !important;
 }
 
-/* Se ilumina cuando haces clic para escribir */
 .stChatInputContainer:focus-within {
     border: 1px solid rgba(168, 85, 247, 0.8) !important;
     box-shadow: 0 4px 20px rgba(168, 85, 247, 0.2) !important;
@@ -123,12 +102,15 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. SISTEMA DE AUTENTICACIÓN (FIREBASE REST API) ---
+# --- 2. SISTEMA DE AUTENTICACIÓN Y BASE DE DATOS (FIREBASE REST API) ---
 try:
     FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
 except KeyError:
     st.error("Error técnico: Falta FIREBASE_API_KEY en Streamlit Secrets.")
     st.stop()
+
+# URL extraída de tu captura de pantalla
+FIREBASE_DB_URL = "https://neura-ai-2026-default-rtdb.europe-west1.firebasedatabase.app"
 
 def registrar_usuario_firebase(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
@@ -154,12 +136,23 @@ def login_usuario_firebase(email, password):
     
     if respuesta.status_code == 200:
         datos = respuesta.json()
-        return True, datos['idToken']
+        return True, datos['idToken'], datos['localId']
     else:
         error_msg = respuesta.json().get("error", {}).get("message", "Error desconocido")
         if error_msg in ["INVALID_LOGIN_CREDENTIALS", "INVALID_PASSWORD", "EMAIL_NOT_FOUND"]:
-            return False, "Correo o contraseña incorrectos."
-        return False, error_msg
+            return False, "Correo o contraseña incorrectos.", None
+        return False, error_msg, None
+
+def cargar_chats_firebase(uid, token):
+    url = f"{FIREBASE_DB_URL}/usuarios/{uid}/chats.json?auth={token}"
+    respuesta = requests.get(url)
+    if respuesta.status_code == 200 and respuesta.json() is not None:
+        return respuesta.json()
+    return {}
+
+def guardar_chats_firebase(uid, token, chats):
+    url = f"{FIREBASE_DB_URL}/usuarios/{uid}/chats.json?auth={token}"
+    requests.put(url, json=chats)
 
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
@@ -181,13 +174,23 @@ if not st.session_state.autenticado:
                 submit_login = st.form_submit_button("Entrar", use_container_width=True)
                 
                 if submit_login:
-                    exito, mensaje_o_token = login_usuario_firebase(email_login, pass_login)
+                    exito, token_o_msg, uid = login_usuario_firebase(email_login, pass_login)
                     if exito:
                         st.session_state.autenticado = True
                         st.session_state.usuario_email = email_login
+                        st.session_state.id_token = token_o_msg
+                        st.session_state.user_uid = uid
+                        
+                        # Al iniciar sesión, descargamos los chats de Firebase
+                        chats_guardados = cargar_chats_firebase(uid, token_o_msg)
+                        if not chats_guardados:
+                            chats_guardados = {"Nuevo Chat": []}
+                        
+                        st.session_state.chats = chats_guardados
+                        st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
                         st.rerun()
                     else:
-                        st.error(mensaje_o_token)
+                        st.error(token_o_msg)
                         
         with tab_registro:
             with st.form("form_registro"):
@@ -206,7 +209,6 @@ if not st.session_state.autenticado:
                         else:
                             st.error(mensaje)
     
-    # Detenemos la carga del resto de la app si no hay sesión iniciada
     st.stop()
 
 # --- 3. SISTEMA PRINCIPAL DE NEURA AI ---
@@ -241,15 +243,11 @@ with st.sidebar:
     st.write(f"Usuario: {st.session_state.usuario_email}")
     if st.button("Cerrar Sesión", use_container_width=True):
         st.session_state.autenticado = False
+        st.session_state.chats = {"Nuevo Chat": []}
         st.rerun()
         
     st.divider()
     st.title("Mis Chats")
-    
-    if "chats" not in st.session_state:
-        st.session_state.chats = {"Nuevo Chat": []}
-    if "chat_actual" not in st.session_state:
-        st.session_state.chat_actual = "Nuevo Chat"
 
     col1, col2 = st.columns(2)
     with col1:
@@ -263,6 +261,8 @@ with st.sidebar:
                 
             st.session_state.chats[nuevo_nombre] = []
             st.session_state.chat_actual = nuevo_nombre
+            # Guardar en Firebase al crear un chat nuevo
+            guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
             st.rerun()
             
     with col2:
@@ -274,6 +274,8 @@ with st.sidebar:
                 st.session_state.chats = {"Nuevo Chat": []}
                 
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
+            # Guardar en Firebase al borrar un chat
+            guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
             st.rerun()
 
     chat_seleccionado = st.session_state.chat_actual if st.session_state.chat_actual in st.session_state.chats else list(st.session_state.chats.keys())[0]
@@ -322,6 +324,9 @@ if prompt:
     renderizar_mensaje("user", prompt)
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
     
+    # Guardamos en Firebase el mensaje del usuario
+    guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
+    
     mensajes_api = [{"role": "system", "content": instrucciones}]
     for m in st.session_state.chats[st.session_state.chat_actual][-10:]:
         rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
@@ -359,6 +364,11 @@ if prompt:
                     for k, v in st.session_state.chats.items()
                 }
                 st.session_state.chat_actual = nuevo_titulo
+                
+            # Guardamos en Firebase la respuesta de la IA (y el posible cambio de título)
+            guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
+            
+            if es_primer_mensaje:
                 st.rerun()
             
         except Exception as e:
