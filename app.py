@@ -4,43 +4,13 @@ from groq import Groq
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-# CSS para el cristal líquido morado y botones dinámicos
+# CSS para el cristal líquido morado y botones de la barra lateral estirados
 st.markdown("""
 <style>
 /* Capa morada semitransparente que se mezcla con el fondo nativo de Streamlit */
 .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
-    background-attachment: fixed !important; /* El fondo no se corta al hacer scroll */
 }
-
-/* ==================================================================
-   ARREGLO DEFINITIVO DEL BLOQUE NEGRO INFERIOR Y SUPERIOR
-   ================================================================== */
-/* Forzamos transparencia TOTAL en header, footer y contenedores nativos de vista */
-header[data-testid="stHeader"], 
-div[data-testid="stBottomBlock"],
-footer,
-.stAppViewContainer > section {
-    background: transparent !important;
-    background-color: transparent !important;
-}
-
-/* LA REGLA MAESTRA:
-   Streamlit anida muchas capas para la vista principal. 
-   Identificamos y forzamos transparencia en cada una para eliminar el bloque negro.
-*/
-div[data-testid="stAppViewContainer"],
-div[data-testid="stAppViewBlockContainer"] {
-    background-color: transparent !important;
-    background: transparent !important;
-}
-
-/* Ajustamos el padding-bottom de la vista principal para que los mensajes no queden detrás del input */
-div[data-testid="stAppViewBlockContainer"] {
-    padding-bottom: 120px !important; 
-}
-/* ================================================================== */
-
 
 /* Panel lateral de cristal esmerilado con toque morado */
 [data-testid="stSidebar"] {
@@ -53,14 +23,14 @@ div[data-testid="stAppViewBlockContainer"] {
 }
 
 /* ------------------------------------------------------------------
-   Transformar selectores de chat en bloques de ANCHO DINÁMICO (LAS "RALLAS")
+   Transformar selectores de chat en bloques largos (Ancho 100% FORZADO)
    ------------------------------------------------------------------ */
 /* Ocultar el título "Selecciona una conversación:" */
 [data-testid="stRadio"] > label {
     display: none !important;
 }
 
-/* Contenedor principal alineado a la izquierda sin estirar */
+/* Forzar que el contenedor ocupe todo el ancho y ESTIRE los hijos */
 div[data-testid="stRadio"],
 div[data-testid="stRadio"] > div,
 div[data-testid="stRadio"] div[role="radiogroup"] {
@@ -68,7 +38,7 @@ div[data-testid="stRadio"] div[role="radiogroup"] {
     max-width: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: flex-start !important;
+    align-items: stretch !important; /* LA MAGIA: Obliga a estirar hasta el borde derecho */
 }
 
 /* Ocultar el círculo nativo (el punto rojo/blanco) */
@@ -76,15 +46,15 @@ div[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
     display: none !important; 
 }
 
-/* Estilo de la caja base del chat - ADAPTABLE AL TEXTO (fit-content) */
+/* Estilo de la caja base del chat - FORZADA AL 100% */
 div[data-testid="stRadio"] div[role="radiogroup"] label {
     background-color: rgba(255, 255, 255, 0.05) !important;
     padding: 12px 15px !important;
     border-radius: 12px !important;
     margin-bottom: 8px !important;
-    width: fit-content !important;  /* Abraza al texto */
-    max-width: 100% !important;     
-    flex: 0 1 auto !important;      
+    width: 100% !important; 
+    max-width: 100% !important;
+    flex: 1 1 100% !important; /* Fuerza la expansión máxima */
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
@@ -92,15 +62,13 @@ div[data-testid="stRadio"] div[role="radiogroup"] label {
     border: 1px solid transparent !important;
 }
 
-/* Forzar que el texto interno gestione bien el espacio y los recortes */
+/* Forzar que el texto interno también ocupe todo el ancho sin romperse */
 div[data-testid="stRadio"] div[role="radiogroup"] label div {
-    width: fit-content !important;
-    max-width: 100% !important;
+    width: 100% !important;
     display: block !important;
 }
 div[data-testid="stRadio"] div[role="radiogroup"] label p {
-    width: fit-content !important;
-    max-width: 100% !important;
+    width: 100% !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
@@ -191,9 +159,6 @@ with st.sidebar:
                 
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
             st.rerun()
-
-    # Línea fina separadora debajo de los botones
-    st.divider()
 
     st.session_state.chat_actual = st.radio(
         "Selecciona una conversación:", 
