@@ -4,7 +4,7 @@ from groq import Groq
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
 st.set_page_config(page_title="Neura AI", layout="centered")
 
-# CSS para el cristal líquido morado que se adapta al tema claro/oscuro
+# CSS para el cristal líquido morado y botones estilo Gemini
 st.markdown("""
 <style>
 /* Capa morada semitransparente que se mezcla con el fondo nativo de Streamlit */
@@ -20,12 +20,16 @@ st.markdown("""
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
 }
 
-/* Transformar los selectores de chat (Radio) en bloques tipo Gemini */
-[data-testid="stRadio"] [role="radio"] {
-    display: none !important; /* Oculta los circulitos nativos */
+/* ------------------------------------------------------------------
+   NUEVO: Transformar selectores de chat en bloques limpios (Sin punto)
+   ------------------------------------------------------------------ */
+/* Ocultar el círculo nativo (el punto rojo/blanco) */
+[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
+    display: none !important; 
 }
 
-[data-testid="stRadio"] label {
+/* Estilo de la caja base del chat (No seleccionado) */
+[data-testid="stRadio"] div[role="radiogroup"] label {
     background-color: rgba(255, 255, 255, 0.05) !important;
     padding: 10px 15px !important;
     border-radius: 12px !important;
@@ -33,18 +37,21 @@ st.markdown("""
     width: 100% !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
+    border: 1px solid transparent !important;
 }
 
-[data-testid="stRadio"] label:hover {
+/* Efecto al pasar el ratón por encima */
+[data-testid="stRadio"] div[role="radiogroup"] label:hover {
     background-color: rgba(168, 85, 247, 0.15) !important;
 }
 
-/* Estilo para el chat SELECCIONADO */
-[data-testid="stRadio"] label:has([aria-checked="true"]) {
+/* Estilo para el chat SELECCIONADO (Activo) */
+[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     background-color: rgba(168, 85, 247, 0.3) !important;
     border: 1px solid rgba(168, 85, 247, 0.5) !important;
     box-shadow: 0 2px 10px rgba(168, 85, 247, 0.1) !important;
 }
+/* ------------------------------------------------------------------ */
 
 /* Caja de entrada de texto flotante */
 .stChatInputContainer {
@@ -139,7 +146,7 @@ with st.sidebar:
 # --- 4. MOTOR GRÁFICO PERSONALIZADO (Burbujas Moradas) ---
 def renderizar_mensaje(rol, texto):
     if rol == "user":
-        # Burbuja del usuario: Morado vibrante degradado
+        # Burbuja del usuario: Morado vibrante degradado (Estilo iMessage premium)
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-end; width: 100%; margin-bottom: 20px;">
     <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(109, 40, 217, 0.9)); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px 20px 4px 20px; padding: 10px 16px; max-width: 75%; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3); backdrop-filter: blur(16px); font-weight: 400;">
@@ -148,7 +155,7 @@ def renderizar_mensaje(rol, texto):
 </div>
 """, unsafe_allow_html=True)
     else:
-        # Burbuja de Neura: Cristal lila transparente
+        # Burbuja de Neura: Cristal lila transparente (Se adapta al modo claro/oscuro)
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 20px;">
     <div style="background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 20px 20px 20px 4px; padding: 10px 16px; max-width: 75%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); backdrop-filter: blur(16px); font-weight: 400;">
