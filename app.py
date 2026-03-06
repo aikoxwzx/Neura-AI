@@ -2,10 +2,9 @@ import streamlit as st
 from groq import Groq
 
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
-# CAMBIO AQUÍ: layout="wide" para que ocupe toda la pantalla como Gemini
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-# CSS para el cristal líquido morado y botones estilo Gemini
+# CSS para el cristal líquido morado y botones de la barra lateral estirados
 st.markdown("""
 <style>
 /* Capa morada semitransparente que se mezcla con el fondo nativo de Streamlit */
@@ -22,18 +21,16 @@ st.markdown("""
 }
 
 /* ------------------------------------------------------------------
-   Transformar selectores de chat en bloques limpios y anchos
+   Transformar selectores de chat en bloques largos (Ancho 100%)
    ------------------------------------------------------------------ */
-/* Ocultar el título "Selecciona una conversación:" para dejarlo minimalista */
+/* Ocultar el título "Selecciona una conversación:" */
 [data-testid="stRadio"] > label {
     display: none !important;
 }
 
-/* Forzar que el contenedor del grupo de botones ocupe todo el ancho */
+/* Contenedor del grupo de botones */
 [data-testid="stRadio"] div[role="radiogroup"] {
     width: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
 }
 
 /* Ocultar el círculo nativo (el punto rojo/blanco) */
@@ -41,19 +38,30 @@ st.markdown("""
     display: none !important; 
 }
 
-/* Estilo de la caja base del chat (No seleccionado) */
+/* Estilo de la caja base del chat (No seleccionado) - ANCHO TOTAL */
 [data-testid="stRadio"] div[role="radiogroup"] label {
     background-color: rgba(255, 255, 255, 0.05) !important;
-    padding: 10px 15px !important;
+    padding: 12px 15px !important;
     border-radius: 12px !important;
     margin-bottom: 8px !important;
-    width: 100% !important; /* Estira la caja hasta el final */
-    box-sizing: border-box !important; /* Evita que el padding rompa el margen */
+    width: 100% !important; /* Estira la caja hasta el borde del panel */
+    display: flex !important;
+    box-sizing: border-box !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
     border: 1px solid transparent !important;
-    display: flex !important;
-    align-items: center !important;
+}
+
+/* Forzar que el texto interno también ocupe todo el ancho sin romperse */
+[data-testid="stRadio"] div[role="radiogroup"] label div {
+    width: 100% !important;
+}
+[data-testid="stRadio"] div[role="radiogroup"] label p {
+    width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    margin: 0 !important;
 }
 
 /* Efecto al pasar el ratón por encima */
