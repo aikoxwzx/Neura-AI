@@ -4,38 +4,13 @@ from groq import Groq
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-# CSS para el cristal líquido morado y botones dinámicos
+# CSS para el cristal líquido morado y botones de la barra lateral estirados
 st.markdown("""
 <style>
 /* Capa morada semitransparente que se mezcla con el fondo nativo de Streamlit */
 .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
-    background-attachment: fixed !important; /* El fondo no se corta al hacer scroll */
 }
-
-/* ==================================================================
-   ARREGLO DEFINITIVO DEL BLOQUE NEGRO INFERIOR Y SUPERIOR
-   ================================================================== */
-/* Forzamos transparencia TOTAL en header, footer y contenedores nativos de vista */
-header[data-testid="stHeader"], 
-div[data-testid="stBottomBlock"],
-footer,
-.stAppViewContainer > section {
-    background: transparent !important;
-    background-color: transparent !important;
-}
-
-div[data-testid="stAppViewContainer"],
-div[data-testid="stAppViewBlockContainer"] {
-    background-color: transparent !important;
-    background: transparent !important;
-}
-
-div[data-testid="stAppViewBlockContainer"] {
-    padding-bottom: 120px !important; 
-}
-/* ================================================================== */
-
 
 /* Panel lateral de cristal esmerilado con toque morado */
 [data-testid="stSidebar"] {
@@ -48,38 +23,37 @@ div[data-testid="stAppViewBlockContainer"] {
 }
 
 /* ------------------------------------------------------------------
-   Transformar selectores de chat en bloques largos (Ancho 100% FORZADO)
+   Transformar selectores de chat en bloques largos (Ancho 100%)
+   AQUÍ ESTÁ LA MAGIA QUE SOLO AFECTA A LOS CHATS CREADOS
    ------------------------------------------------------------------ */
 /* Ocultar el título "Selecciona una conversación:" */
 [data-testid="stRadio"] > label {
     display: none !important;
 }
 
-/* Contenedor principal alineado a la izquierda estirando al máximo */
-div[data-testid="stRadio"],
-div[data-testid="stRadio"] > div,
-div[data-testid="stRadio"] div[role="radiogroup"] {
+/* Forzar que el contenedor exclusivo de los chats ocupe todo el ancho */
+[data-testid="stRadio"],
+[data-testid="stRadio"] > div,
+[data-testid="stRadio"] div[role="radiogroup"] {
     width: 100% !important;
     max-width: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: stretch !important; /* Obliga a estirar hasta el borde derecho */
 }
 
 /* Ocultar el círculo nativo (el punto rojo/blanco) */
-div[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
+[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
     display: none !important; 
 }
 
-/* Estilo de la caja base del chat - AL 100% */
-div[data-testid="stRadio"] div[role="radiogroup"] label {
+/* Estilo de la caja base del chat - SE ESTIRA HASTA EL FINAL */
+[data-testid="stRadio"] div[role="radiogroup"] label {
     background-color: rgba(255, 255, 255, 0.05) !important;
     padding: 12px 15px !important;
     border-radius: 12px !important;
     margin-bottom: 8px !important;
-    width: 100% !important;  
-    max-width: 100% !important;     
-    flex: 1 1 100% !important;      
+    width: 100% !important; 
+    max-width: 100% !important;
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
@@ -87,15 +61,12 @@ div[data-testid="stRadio"] div[role="radiogroup"] label {
     border: 1px solid transparent !important;
 }
 
-/* Forzar que el texto interno gestione bien el espacio y los recortes */
-div[data-testid="stRadio"] div[role="radiogroup"] label div {
+/* Forzar que el texto interno también ocupe todo el ancho sin romperse */
+[data-testid="stRadio"] div[role="radiogroup"] label div {
     width: 100% !important;
-    max-width: 100% !important;
-    display: block !important;
 }
-div[data-testid="stRadio"] div[role="radiogroup"] label p {
+[data-testid="stRadio"] div[role="radiogroup"] label p {
     width: 100% !important;
-    max-width: 100% !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
@@ -103,12 +74,12 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p {
 }
 
 /* Efecto al pasar el ratón por encima */
-div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
+[data-testid="stRadio"] div[role="radiogroup"] label:hover {
     background-color: rgba(168, 85, 247, 0.15) !important;
 }
 
 /* Estilo para el chat SELECCIONADO (Activo) */
-div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
+[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     background-color: rgba(168, 85, 247, 0.3) !important;
     border: 1px solid rgba(168, 85, 247, 0.5) !important;
     box-shadow: 0 2px 10px rgba(168, 85, 247, 0.1) !important;
@@ -162,7 +133,7 @@ with st.sidebar:
     if "chat_actual" not in st.session_state:
         st.session_state.chat_actual = "Nuevo Chat"
 
-    # Botones originales intactos
+    # LOS BOTONES ORIGINALES INTACTOS EN SUS COLUMNAS COMO QUERÍAS
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Nuevo", use_container_width=True):
