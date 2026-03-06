@@ -11,23 +11,26 @@ st.markdown("""
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
 }
 
-/* Panel lateral de cristal esmerilado con toque morado */
+/* --- PANEL LATERAL (Responsive + Animaciones) --- */
 [data-testid="stSidebar"] {
     background-color: rgba(126, 34, 206, 0.05) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
+    /* Animación fluida al abrir/cerrar el panel */
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), width 0.4s ease-in-out, min-width 0.4s ease-in-out !important;
 }
 
-/* 🟢 LA SOLUCIÓN: Ancho fijo SOLO para ordenadores (pantallas mayores a 768px) */
+/* Resoluciones de ordenador (Desktop): Auto-ajustable con "clamp" */
 @media (min-width: 768px) {
     [data-testid="stSidebar"] {
-        min-width: 380px !important;
-        max-width: 380px !important;
+        /* Se adapta dinámicamente: mínimo 280px, ideal 25% de la pantalla, máximo 380px */
+        width: clamp(280px, 25vw, 380px) !important;
+        min-width: clamp(280px, 25vw, 380px) !important;
     }
 }
 
-/* Transformar selectores de chat en bloques largos */
+/* --- BOTONES DE CHAT (Estirados y con animación hover) --- */
 [data-testid="stRadio"] > label {
     display: none !important;
 }
@@ -57,7 +60,8 @@ div[data-testid="stRadio"] div[role="radiogroup"] label {
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
-    transition: all 0.2s ease !important;
+    /* Animación suave para los colores y el movimiento */
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
     border: 1px solid transparent !important;
 }
 
@@ -74,23 +78,33 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p {
     margin: 0 !important;
 }
 
+/* Efecto al pasar el ratón: se ilumina y se desliza ligeramente a la derecha */
 div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
     background-color: rgba(168, 85, 247, 0.15) !important;
+    transform: translateX(4px); 
 }
 
+/* Chat seleccionado */
 div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     background-color: rgba(168, 85, 247, 0.3) !important;
     border: 1px solid rgba(168, 85, 247, 0.5) !important;
     box-shadow: 0 2px 10px rgba(168, 85, 247, 0.1) !important;
 }
 
-/* Caja de entrada de texto flotante */
+/* --- CAJA DE INPUT DE TEXTO (Con animación al escribir) --- */
 .stChatInputContainer {
     background-color: rgba(168, 85, 247, 0.05) !important;
     backdrop-filter: blur(16px) !important;
     border-radius: 20px !important;
     border: 1px solid rgba(168, 85, 247, 0.3) !important;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease-in-out !important;
+}
+
+/* Se ilumina cuando haces clic para escribir */
+.stChatInputContainer:focus-within {
+    border: 1px solid rgba(168, 85, 247, 0.8) !important;
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.2) !important;
 }
 </style>
 """, unsafe_allow_html=True)
