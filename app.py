@@ -4,12 +4,22 @@ from groq import Groq
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-# CSS para el cristal líquido morado y botones de la barra lateral dinámicos
+# CSS para el cristal líquido morado y botones de la barra lateral estirados
 st.markdown("""
 <style>
 /* Capa morada semitransparente que se mezcla con el fondo nativo de Streamlit */
 .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
+    background-attachment: fixed !important; /* Evita que el fondo se corte al hacer scroll */
+}
+
+/* --- CORRECCIÓN DEL BLOQUE NEGRO INFERIOR Y SUPERIOR --- */
+/* Hacer totalmente transparentes los contenedores nativos de Streamlit */
+[data-testid="stHeader"], 
+[data-testid="stBottomBlock"], 
+[data-testid="stAppViewContainer"] {
+    background: transparent !important;
+    background-color: transparent !important;
 }
 
 /* Panel lateral de cristal esmerilado con toque morado */
@@ -38,7 +48,7 @@ div[data-testid="stRadio"] div[role="radiogroup"] {
     max-width: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: flex-start !important; /* ALINEACIÓN A LA IZQUIERDA, SIN ESTIRAR */
+    align-items: flex-start !important;
 }
 
 /* Ocultar el círculo nativo (el punto rojo/blanco) */
@@ -52,9 +62,9 @@ div[data-testid="stRadio"] div[role="radiogroup"] label {
     padding: 12px 15px !important;
     border-radius: 12px !important;
     margin-bottom: 8px !important;
-    width: fit-content !important;  /* LA CAJA ABRAZA AL TEXTO */
-    max-width: 100% !important;     /* NUNCA SE SALE DE LA PANTALLA */
-    flex: 0 1 auto !important;      /* NO SE FUERZA A EXPANDIRSE */
+    width: fit-content !important;  
+    max-width: 100% !important;     
+    flex: 0 1 auto !important;      
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
@@ -162,7 +172,6 @@ with st.sidebar:
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
             st.rerun()
 
-    # LÍNEA FINA SEPARADORA DEBAJO DE LOS BOTONES
     st.divider()
 
     st.session_state.chat_actual = st.radio(
