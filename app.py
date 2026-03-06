@@ -264,7 +264,7 @@ if not st.session_state.autenticado:
                         else:
                             st.error(token_o_msg)
                 
-                if st.button("¿Has olvidado la contraseña?", variant="secondary"):
+                if st.button("¿Has olvidado la contraseña?", use_container_width=True):
                     st.session_state.olvido_pass = True
                     st.rerun()
                             
