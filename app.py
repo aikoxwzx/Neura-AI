@@ -4,7 +4,7 @@ from groq import Groq
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-# CSS para el cristal líquido morado y botones de la barra lateral estirados
+# CSS para el cristal líquido morado y botones dinámicos
 st.markdown("""
 <style>
 /* Capa morada semitransparente que se mezcla con el fondo nativo de Streamlit */
@@ -18,33 +18,43 @@ st.markdown("""
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
+    min-width: 380px !important;
+    max-width: 380px !important;
 }
 
 /* ------------------------------------------------------------------
-   Transformar selectores de chat en bloques largos (Ancho 100%)
+   Transformar selectores de chat en bloques de ANCHO DINÁMICO
    ------------------------------------------------------------------ */
 /* Ocultar el título "Selecciona una conversación:" */
 [data-testid="stRadio"] > label {
     display: none !important;
 }
 
-/* Contenedor del grupo de botones */
-[data-testid="stRadio"] div[role="radiogroup"] {
+/* Forzar que el contenedor principal alinee los elementos a la izquierda sin estirarlos */
+div[data-testid="stRadio"],
+div[data-testid="stRadio"] > div,
+div[data-testid="stRadio"] div[role="radiogroup"] {
     width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important; /* ALINEACIÓN IZQUIERDA, NO ESTIRAR */
 }
 
 /* Ocultar el círculo nativo (el punto rojo/blanco) */
-[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
+div[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
     display: none !important; 
 }
 
-/* Estilo de la caja base del chat (No seleccionado) - ANCHO TOTAL */
-[data-testid="stRadio"] div[role="radiogroup"] label {
+/* Estilo de la caja base del chat - ADAPTABLE AL TEXTO (fit-content) */
+div[data-testid="stRadio"] div[role="radiogroup"] label {
     background-color: rgba(255, 255, 255, 0.05) !important;
     padding: 12px 15px !important;
     border-radius: 12px !important;
     margin-bottom: 8px !important;
-    width: 100% !important; /* Estira la caja hasta el borde del panel */
+    width: fit-content !important;  /* LA CAJA ABRAZA AL TEXTO */
+    max-width: 100% !important;     /* NUNCA SE SALE DE LA PANTALLA */
+    flex: 0 1 auto !important;      /* NO SE FUERZA A EXPANDIRSE */
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
@@ -52,12 +62,15 @@ st.markdown("""
     border: 1px solid transparent !important;
 }
 
-/* Forzar que el texto interno también ocupe todo el ancho sin romperse */
-[data-testid="stRadio"] div[role="radiogroup"] label div {
-    width: 100% !important;
+/* Forzar que el texto interno gestione bien el espacio y los recortes */
+div[data-testid="stRadio"] div[role="radiogroup"] label div {
+    width: fit-content !important;
+    max-width: 100% !important;
+    display: block !important;
 }
-[data-testid="stRadio"] div[role="radiogroup"] label p {
-    width: 100% !important;
+div[data-testid="stRadio"] div[role="radiogroup"] label p {
+    width: fit-content !important;
+    max-width: 100% !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
@@ -65,12 +78,12 @@ st.markdown("""
 }
 
 /* Efecto al pasar el ratón por encima */
-[data-testid="stRadio"] div[role="radiogroup"] label:hover {
+div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
     background-color: rgba(168, 85, 247, 0.15) !important;
 }
 
 /* Estilo para el chat SELECCIONADO (Activo) */
-[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
+div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     background-color: rgba(168, 85, 247, 0.3) !important;
     border: 1px solid rgba(168, 85, 247, 0.5) !important;
     box-shadow: 0 2px 10px rgba(168, 85, 247, 0.1) !important;
@@ -124,11 +137,10 @@ with st.sidebar:
     if "chat_actual" not in st.session_state:
         st.session_state.chat_actual = "Nuevo Chat"
 
-    # Botones en columnas para crear y DESTRUIR chats
+    # Botones originales intactos
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Nuevo", use_container_width=True):
-            # Asegurar que el nombre base sea único si se pulsa varias veces seguidas
             base_nombre = "Nuevo Chat"
             nuevo_nombre = base_nombre
             contador = 1
@@ -142,16 +154,16 @@ with st.sidebar:
             
     with col2:
         if st.button("Borrar", use_container_width=True):
-            # Elimina el chat completo del diccionario
             del st.session_state.chats[st.session_state.chat_actual]
             
-            # Si se borran todos los chats, crea uno de emergencia
             if len(st.session_state.chats) == 0:
                 st.session_state.chats = {"Nuevo Chat": []}
                 
-            # Salta automáticamente al primer chat disponible
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
             st.rerun()
+
+    # NUEVO: Línea divisoria fina que has pedido
+    st.divider()
 
     st.session_state.chat_actual = st.radio(
         "Selecciona una conversación:", 
@@ -167,10 +179,9 @@ with st.sidebar:
     st.caption(f"Servidor en uso: {st.session_state.api_index + 1}")
     st.caption("NeuraAI")
 
-# --- 4. MOTOR GRÁFICO PERSONALIZADO (Burbujas Moradas) ---
+# --- 4. MOTOR GRÁFICO PERSONALIZADO ---
 def renderizar_mensaje(rol, texto):
     if rol == "user":
-        # Burbuja del usuario: Morado vibrante degradado (Estilo iMessage premium)
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-end; width: 100%; margin-bottom: 20px;">
     <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(109, 40, 217, 0.9)); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px 20px 4px 20px; padding: 10px 16px; max-width: 75%; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3); backdrop-filter: blur(16px); font-weight: 400;">
@@ -179,7 +190,6 @@ def renderizar_mensaje(rol, texto):
 </div>
 """, unsafe_allow_html=True)
     else:
-        # Burbuja de Neura: Cristal lila transparente (Se adapta al modo claro/oscuro)
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 20px;">
     <div style="background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 20px 20px 20px 4px; padding: 10px 16px; max-width: 75%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); backdrop-filter: blur(16px); font-weight: 400;">
@@ -197,14 +207,11 @@ for mensaje in st.session_state.chats[st.session_state.chat_actual]:
 prompt = st.chat_input("Escribe tu mensaje aquí...")
 
 if prompt:
-    # Verificamos si es el primer mensaje de este chat para renombrarlo luego
     es_primer_mensaje = len(st.session_state.chats[st.session_state.chat_actual]) == 0
 
-    # Mostramos mensaje nuevo del usuario
     renderizar_mensaje("user", prompt)
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
     
-    # Preparamos el historial para Groq
     mensajes_api = [{"role": "system", "content": instrucciones}]
     for m in st.session_state.chats[st.session_state.chat_actual][-5:]:
         rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
@@ -214,7 +221,6 @@ if prompt:
         texto_archivo = archivo_subido.read().decode('utf-8')
         mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto:]\n{texto_archivo}"
 
-    # IA procesando
     with st.spinner("Procesando..."):
         try:
             response = client.chat.completions.create(
@@ -223,26 +229,19 @@ if prompt:
             )
             respuesta_texto = response.choices[0].message.content
             
-            # Mostrar respuesta de Neura
             renderizar_mensaje("assistant", respuesta_texto)
             st.session_state.chats[st.session_state.chat_actual].append({"rol": "assistant", "texto": respuesta_texto})
             
-            # Rotamos la clave
             st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
 
-            # Si era el primer mensaje, renombramos el chat actual
             if es_primer_mensaje:
-                # Cogemos los primeros 20 caracteres del prompt
                 nuevo_titulo = prompt[:20] + "..." if len(prompt) > 20 else prompt
-                
-                # Evitar nombres duplicados
                 base_titulo = nuevo_titulo
                 contador_titulo = 1
                 while nuevo_titulo in st.session_state.chats and nuevo_titulo != st.session_state.chat_actual:
                     nuevo_titulo = f"{base_titulo} ({contador_titulo})"
                     contador_titulo += 1
                 
-                # Reconstruimos el diccionario de chats para mantener el orden visual
                 nuevos_chats = {}
                 for clave, valor in st.session_state.chats.items():
                     if clave == st.session_state.chat_actual:
@@ -252,8 +251,6 @@ if prompt:
                 
                 st.session_state.chats = nuevos_chats
                 st.session_state.chat_actual = nuevo_titulo
-                
-                # Recargamos la interfaz para que aparezca el nuevo nombre en la barra lateral
                 st.rerun()
             
         except Exception as e:
