@@ -174,7 +174,7 @@ if prompt:
             except Exception as e:
                 st.error("⚠️ Hubo un error de conexión con Groq. Cambiando de servidor...")
                 st.code(f"Error técnico: {e}")
-                st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)import streamlit as st
+                st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
 import google.generativeai as genai
 from PIL import Image
 
