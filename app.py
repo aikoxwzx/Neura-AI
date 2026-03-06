@@ -17,8 +17,14 @@ st.markdown("""
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
-    min-width: 380px !important;
-    max-width: 380px !important;
+}
+
+/* 🟢 LA SOLUCIÓN: Ancho fijo SOLO para ordenadores (pantallas mayores a 768px) */
+@media (min-width: 768px) {
+    [data-testid="stSidebar"] {
+        min-width: 380px !important;
+        max-width: 380px !important;
+    }
 }
 
 /* Transformar selectores de chat en bloques largos */
