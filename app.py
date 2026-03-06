@@ -24,13 +24,14 @@ st.markdown("""
 
 /* ------------------------------------------------------------------
    Transformar selectores de chat en bloques largos (Ancho 100%)
+   AQUÍ ESTÁ LA MAGIA QUE SOLO AFECTA A LOS CHATS CREADOS
    ------------------------------------------------------------------ */
 /* Ocultar el título "Selecciona una conversación:" */
 [data-testid="stRadio"] > label {
     display: none !important;
 }
 
-/* Forzar que TODAS las capas del contenedor ocupen todo el ancho sin recortes */
+/* Forzar que el contenedor exclusivo de los chats ocupe todo el ancho */
 [data-testid="stRadio"],
 [data-testid="stRadio"] > div,
 [data-testid="stRadio"] div[role="radiogroup"] {
@@ -45,7 +46,7 @@ st.markdown("""
     display: none !important; 
 }
 
-/* Estilo de la caja base del chat (No seleccionado) - ANCHO TOTAL */
+/* Estilo de la caja base del chat - SE ESTIRA HASTA EL FINAL */
 [data-testid="stRadio"] div[role="radiogroup"] label {
     background-color: rgba(255, 255, 255, 0.05) !important;
     padding: 12px 15px !important;
@@ -132,11 +133,10 @@ with st.sidebar:
     if "chat_actual" not in st.session_state:
         st.session_state.chat_actual = "Nuevo Chat"
 
-    # Botones en columnas para crear y DESTRUIR chats
+    # LOS BOTONES ORIGINALES INTACTOS EN SUS COLUMNAS COMO QUERÍAS
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Nuevo", use_container_width=True):
-            # Asegurar que el nombre base sea único si se pulsa varias veces seguidas
             base_nombre = "Nuevo Chat"
             nuevo_nombre = base_nombre
             contador = 1
@@ -150,14 +150,11 @@ with st.sidebar:
             
     with col2:
         if st.button("Borrar", use_container_width=True):
-            # Elimina el chat completo del diccionario
             del st.session_state.chats[st.session_state.chat_actual]
             
-            # Si se borran todos los chats, crea uno de emergencia
             if len(st.session_state.chats) == 0:
                 st.session_state.chats = {"Nuevo Chat": []}
                 
-            # Salta automáticamente al primer chat disponible
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
             st.rerun()
 
@@ -175,10 +172,9 @@ with st.sidebar:
     st.caption(f"Servidor en uso: {st.session_state.api_index + 1}")
     st.caption("NeuraAI")
 
-# --- 4. MOTOR GRÁFICO PERSONALIZADO (Burbujas Moradas) ---
+# --- 4. MOTOR GRÁFICO PERSONALIZADO ---
 def renderizar_mensaje(rol, texto):
     if rol == "user":
-        # Burbuja del usuario: Morado vibrante degradado
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-end; width: 100%; margin-bottom: 20px;">
     <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(109, 40, 217, 0.9)); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px 20px 4px 20px; padding: 10px 16px; max-width: 75%; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3); backdrop-filter: blur(16px); font-weight: 400;">
@@ -187,7 +183,6 @@ def renderizar_mensaje(rol, texto):
 </div>
 """, unsafe_allow_html=True)
     else:
-        # Burbuja de Neura: Cristal lila transparente
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 20px;">
     <div style="background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 20px 20px 20px 4px; padding: 10px 16px; max-width: 75%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); backdrop-filter: blur(16px); font-weight: 400;">
@@ -205,14 +200,11 @@ for mensaje in st.session_state.chats[st.session_state.chat_actual]:
 prompt = st.chat_input("Escribe tu mensaje aquí...")
 
 if prompt:
-    # Verificamos si es el primer mensaje de este chat para renombrarlo luego
     es_primer_mensaje = len(st.session_state.chats[st.session_state.chat_actual]) == 0
 
-    # Mostramos mensaje nuevo del usuario
     renderizar_mensaje("user", prompt)
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
     
-    # Preparamos el historial para Groq
     mensajes_api = [{"role": "system", "content": instrucciones}]
     for m in st.session_state.chats[st.session_state.chat_actual][-5:]:
         rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
@@ -222,7 +214,6 @@ if prompt:
         texto_archivo = archivo_subido.read().decode('utf-8')
         mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto:]\n{texto_archivo}"
 
-    # IA procesando
     with st.spinner("Procesando..."):
         try:
             response = client.chat.completions.create(
@@ -231,26 +222,19 @@ if prompt:
             )
             respuesta_texto = response.choices[0].message.content
             
-            # Mostrar respuesta de Neura
             renderizar_mensaje("assistant", respuesta_texto)
             st.session_state.chats[st.session_state.chat_actual].append({"rol": "assistant", "texto": respuesta_texto})
             
-            # Rotamos la clave
             st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
 
-            # Si era el primer mensaje, renombramos el chat actual
             if es_primer_mensaje:
-                # Cogemos los primeros 20 caracteres del prompt
                 nuevo_titulo = prompt[:20] + "..." if len(prompt) > 20 else prompt
-                
-                # Evitar nombres duplicados
                 base_titulo = nuevo_titulo
                 contador_titulo = 1
                 while nuevo_titulo in st.session_state.chats and nuevo_titulo != st.session_state.chat_actual:
                     nuevo_titulo = f"{base_titulo} ({contador_titulo})"
                     contador_titulo += 1
                 
-                # Reconstruimos el diccionario de chats para mantener el orden visual
                 nuevos_chats = {}
                 for clave, valor in st.session_state.chats.items():
                     if clave == st.session_state.chat_actual:
@@ -260,8 +244,6 @@ if prompt:
                 
                 st.session_state.chats = nuevos_chats
                 st.session_state.chat_actual = nuevo_titulo
-                
-                # Recargamos la interfaz para que aparezca el nuevo nombre en la barra lateral
                 st.rerun()
             
         except Exception as e:
