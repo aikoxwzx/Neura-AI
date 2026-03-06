@@ -9,7 +9,7 @@ st.set_page_config(page_title="Neura AI", layout="wide")
 
 st.markdown("""
 <style>
-/* --- ELIMINACIÓN DE PARPADEO Y FORZADO DE FONDO si --- */
+/* --- ELIMINACIÓN DE PARPADEO Y FORZADO DE FONDO --- */
 html, body, [data-testid="stAppViewContainer"], .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
     background-attachment: fixed !important;
@@ -264,7 +264,7 @@ if not st.session_state.autenticado:
                         else:
                             st.error(token_o_msg)
                 
-                if st.button("¿Has olvidado la contraseña?", type="secondary"
+                if st.button("¿Has olvidado la contraseña?", variant="secondary"):
                     st.session_state.olvido_pass = True
                     st.rerun()
                             
