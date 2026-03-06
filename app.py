@@ -2,7 +2,8 @@ import streamlit as st
 from groq import Groq
 
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
-st.set_page_config(page_title="Neura AI", layout="centered")
+# CAMBIO AQUÍ: layout="wide" para que ocupe toda la pantalla como Gemini
+st.set_page_config(page_title="Neura AI", layout="wide")
 
 # CSS para el cristal líquido morado y botones estilo Gemini
 st.markdown("""
@@ -21,7 +22,7 @@ st.markdown("""
 }
 
 /* ------------------------------------------------------------------
-   NUEVO: Transformar selectores de chat en bloques limpios y anchos
+   Transformar selectores de chat en bloques limpios y anchos
    ------------------------------------------------------------------ */
 /* Ocultar el título "Selecciona una conversación:" para dejarlo minimalista */
 [data-testid="stRadio"] > label {
