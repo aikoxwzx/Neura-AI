@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import re
+import random
 from groq import Groq
 
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo - Carga Ultra-Suave) ---
@@ -112,7 +113,6 @@ except KeyError:
 
 FIREBASE_DB_URL = "https://neura-ai-2026-default-rtdb.europe-west1.firebasedatabase.app"
 
-# Validador de contraseñas (sincronizado con tus reglas de Firebase)
 def validar_contrasena(password):
     if len(password) < 6:
         return False, "La contraseña debe tener al menos 6 caracteres."
@@ -135,12 +135,9 @@ def registrar_usuario_firebase(email, password):
         return True, "Usuario registrado con éxito."
     else:
         error_msg = respuesta.json().get("error", {}).get("message", "Error desconocido")
-        if error_msg == "EMAIL_EXISTS":
-            return False, "Este correo ya está registrado."
-        elif error_msg == "WEAK_PASSWORD":
-            return False, "La contraseña es demasiado débil según las reglas del servidor."
-        elif error_msg == "INVALID_EMAIL":
-            return False, "El formato del correo es inválido."
+        if error_msg == "EMAIL_EXISTS": return False, "Este correo ya está registrado."
+        elif error_msg == "WEAK_PASSWORD": return False, "La contraseña es demasiado débil según las reglas del servidor."
+        elif error_msg == "INVALID_EMAIL": return False, "El formato del correo es inválido."
         return False, error_msg
 
 def login_usuario_firebase(email, password):
@@ -157,6 +154,18 @@ def login_usuario_firebase(email, password):
             return False, "Correo o contraseña incorrectos.", None
         return False, error_msg, None
 
+def enviar_reset_password(email):
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
+    payload = {"requestType": "PASSWORD_RESET", "email": email}
+    res = requests.post(url, json=payload)
+    return res.status_code == 200
+
+def borrar_cuenta_firebase(id_token):
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:delete?key={FIREBASE_API_KEY}"
+    payload = {"idToken": id_token}
+    res = requests.post(url, json=payload)
+    return res.status_code == 200
+
 def cargar_chats_firebase(uid, token):
     url = f"{FIREBASE_DB_URL}/usuarios/{uid}/chats.json?auth={token}"
     respuesta = requests.get(url)
@@ -169,10 +178,12 @@ def guardar_chats_firebase(uid, token, chats):
     url = f"{FIREBASE_DB_URL}/usuarios/{uid}/chats.json?auth={token}"
     requests.put(url, json=chats_a_guardar)
 
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
+# --- VARIABLES DE ESTADO ---
+if "autenticado" not in st.session_state: st.session_state.autenticado = False
+if "esperando_mfa" not in st.session_state: st.session_state.esperando_mfa = False
+if "olvido_pass" not in st.session_state: st.session_state.olvido_pass = False
 
-# --- PANTALLA DE LOGIN / REGISTRO ---
+# --- PANTALLA DE LOGIN / REGISTRO / MFA / RECUPERACIÓN ---
 if not st.session_state.autenticado:
     col1, col2, col3 = st.columns([1, 2, 1])
     
@@ -180,61 +191,103 @@ if not st.session_state.autenticado:
         st.title("Neura AI")
         st.caption("Por favor, identifícate para acceder al sistema.")
         
-        tab_login, tab_registro = st.tabs(["Iniciar Sesión", "Registrarse"])
-        
-        with tab_login:
-            with st.form("form_login"):
-                email_login = st.text_input("Correo electrónico")
-                pass_login = st.text_input("Contraseña", type="password")
-                submit_login = st.form_submit_button("Entrar", use_container_width=True)
-                
-                if submit_login:
-                    exito, token_o_msg, uid = login_usuario_firebase(email_login, pass_login)
-                    if exito:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario_email = email_login
-                        st.session_state.id_token = token_o_msg
-                        st.session_state.user_uid = uid
+        # FLUJO 1: RECUPERAR CONTRASEÑA
+        if st.session_state.olvido_pass:
+            st.subheader("Restablecer Contraseña")
+            st.write("Te enviaremos un enlace oficial para crear una nueva contraseña.")
+            email_reset = st.text_input("Introduce tu correo electrónico")
+            if st.button("Enviar enlace de recuperación", use_container_width=True):
+                if enviar_reset_password(email_reset):
+                    st.success("Se ha enviado un correo. Revisa tu bandeja de entrada.")
+                else:
+                    st.error("No se pudo enviar el correo. Verifica la dirección.")
+            if st.button("Volver al inicio"):
+                st.session_state.olvido_pass = False
+                st.rerun()
+
+        # FLUJO 2: MFA (CÓDIGO DE 6 DÍGITOS)
+        elif st.session_state.esperando_mfa:
+            st.subheader("Verificación en dos pasos")
+            st.write(f"Introduce el código enviado a {st.session_state.temp_email}")
+            st.info(f"DEBUG: Tu código es {st.session_state.codigo_mfa}")
+            
+            codigo_usuario = st.text_input("Código de seguridad", maxLength=6)
+            if st.button("Verificar", use_container_width=True):
+                if codigo_usuario == st.session_state.codigo_mfa:
+                    # Validado: Cargamos los datos en la sesión real
+                    st.session_state.autenticado = True
+                    st.session_state.usuario_email = st.session_state.temp_email
+                    st.session_state.id_token = st.session_state.temp_token
+                    st.session_state.user_uid = st.session_state.temp_uid
+                    
+                    chats_guardados = cargar_chats_firebase(st.session_state.user_uid, st.session_state.id_token)
+                    if not chats_guardados: chats_guardados = {}
+                    
+                    base_nombre = "Nuevo Chat"
+                    nuevo_nombre = base_nombre
+                    contador = 1
+                    while nuevo_nombre in chats_guardados:
+                        nuevo_nombre = f"{base_nombre} ({contador})"
+                        contador += 1
                         
-                        chats_guardados = cargar_chats_firebase(uid, token_o_msg)
-                        if not chats_guardados:
-                            chats_guardados = {}
-                        
-                        base_nombre = "Nuevo Chat"
-                        nuevo_nombre = base_nombre
-                        contador = 1
-                        while nuevo_nombre in chats_guardados:
-                            nuevo_nombre = f"{base_nombre} ({contador})"
-                            contador += 1
-                            
-                        chats_guardados[nuevo_nombre] = []
-                        
-                        st.session_state.chats = chats_guardados
-                        st.session_state.chat_actual = nuevo_nombre
-                        st.rerun()
-                    else:
-                        st.error(token_o_msg)
-                        
-        with tab_registro:
-            with st.form("form_registro"):
-                email_reg = st.text_input("Nuevo Correo")
-                pass_reg = st.text_input("Nueva Contraseña", type="password")
-                pass_reg_conf = st.text_input("Confirmar Contraseña", type="password")
-                submit_reg = st.form_submit_button("Crear cuenta", use_container_width=True)
-                
-                if submit_reg:
-                    if pass_reg != pass_reg_conf:
-                        st.error("Las contraseñas no coinciden.")
-                    else:
-                        es_valida, msg_error = validar_contrasena(pass_reg)
-                        if not es_valida:
-                            st.error(msg_error)
+                    chats_guardados[nuevo_nombre] = []
+                    st.session_state.chats = chats_guardados
+                    st.session_state.chat_actual = nuevo_nombre
+                    st.session_state.esperando_mfa = False
+                    st.rerun()
+                else:
+                    st.error("El código es incorrecto.")
+            if st.button("Cancelar"):
+                st.session_state.esperando_mfa = False
+                st.rerun()
+
+        # FLUJO 3: LOGIN / REGISTRO NORMAL
+        else:
+            tab_login, tab_registro = st.tabs(["Iniciar Sesión", "Registrarse"])
+            
+            with tab_login:
+                with st.form("form_login"):
+                    email_login = st.text_input("Correo electrónico")
+                    pass_login = st.text_input("Contraseña", type="password")
+                    submit_login = st.form_submit_button("Entrar", use_container_width=True)
+                    
+                    if submit_login:
+                        exito, token_o_msg, uid = login_usuario_firebase(email_login, pass_login)
+                        if exito:
+                            # Preparamos el entorno para el MFA en lugar de entrar directo
+                            st.session_state.esperando_mfa = True
+                            st.session_state.temp_email = email_login
+                            st.session_state.temp_token = token_o_msg
+                            st.session_state.temp_uid = uid
+                            st.session_state.codigo_mfa = str(random.randint(100000, 999999))
+                            st.rerun()
                         else:
-                            exito, mensaje = registrar_usuario_firebase(email_reg, pass_reg)
-                            if exito:
-                                st.success(mensaje + " Ahora puedes iniciar sesión en la pestaña anterior.")
+                            st.error(token_o_msg)
+                
+                if st.button("¿Has olvidado la contraseña?", variant="secondary"):
+                    st.session_state.olvido_pass = True
+                    st.rerun()
+                            
+            with tab_registro:
+                with st.form("form_registro"):
+                    email_reg = st.text_input("Nuevo Correo")
+                    pass_reg = st.text_input("Nueva Contraseña", type="password")
+                    pass_reg_conf = st.text_input("Confirmar Contraseña", type="password")
+                    submit_reg = st.form_submit_button("Crear cuenta", use_container_width=True)
+                    
+                    if submit_reg:
+                        if pass_reg != pass_reg_conf:
+                            st.error("Las contraseñas no coinciden.")
+                        else:
+                            es_valida, msg_error = validar_contrasena(pass_reg)
+                            if not es_valida:
+                                st.error(msg_error)
                             else:
-                                st.error(mensaje)
+                                exito, mensaje = registrar_usuario_firebase(email_reg, pass_reg)
+                                if exito:
+                                    st.success(mensaje + " Ahora puedes iniciar sesión en la pestaña anterior.")
+                                else:
+                                    st.error(mensaje)
     
     st.stop()
 
@@ -273,6 +326,20 @@ with st.sidebar:
         st.session_state.chats = {"Nuevo Chat": []}
         st.rerun()
         
+    st.divider()
+    
+    # MENÚ DE ELIMINACIÓN DE CUENTA
+    with st.expander("Configuración de Cuenta"):
+        st.warning("Acción irreversible")
+        if st.button("Eliminar mi cuenta definitivamente"):
+            if borrar_cuenta_firebase(st.session_state.id_token):
+                st.session_state.autenticado = False
+                st.session_state.chats = {"Nuevo Chat": []}
+                st.success("Tu cuenta y credenciales han sido eliminadas.")
+                st.rerun()
+            else:
+                st.error("Por seguridad, debes cerrar sesión y volver a entrar antes de borrar tu cuenta.")
+
     st.divider()
     st.title("Mis Chats")
 
