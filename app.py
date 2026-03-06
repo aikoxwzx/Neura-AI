@@ -4,7 +4,6 @@ from groq import Groq
 # --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA (Liquid Glass Morado Adaptativo) ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
-# CSS para el cristal líquido morado y botones de la barra lateral estirados
 st.markdown("""
 <style>
 /* Capa morada semitransparente que se mezcla con el fondo nativo de Streamlit */
@@ -22,38 +21,33 @@ st.markdown("""
     max-width: 380px !important;
 }
 
-/* ------------------------------------------------------------------
-   Transformar selectores de chat en bloques largos (Ancho 100%)
-   AQUÍ ESTÁ LA MAGIA QUE SOLO AFECTA A LOS CHATS CREADOS
-   ------------------------------------------------------------------ */
-/* Ocultar el título "Selecciona una conversación:" */
+/* Transformar selectores de chat en bloques largos */
 [data-testid="stRadio"] > label {
     display: none !important;
 }
 
-/* Forzar que el contenedor exclusivo de los chats ocupe todo el ancho */
-[data-testid="stRadio"],
-[data-testid="stRadio"] > div,
-[data-testid="stRadio"] div[role="radiogroup"] {
+div[data-testid="stRadio"],
+div[data-testid="stRadio"] > div,
+div[data-testid="stRadio"] div[role="radiogroup"] {
     width: 100% !important;
     max-width: 100% !important;
     display: flex !important;
     flex-direction: column !important;
+    align-items: stretch !important; 
 }
 
-/* Ocultar el círculo nativo (el punto rojo/blanco) */
-[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
+div[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
     display: none !important; 
 }
 
-/* Estilo de la caja base del chat - SE ESTIRA HASTA EL FINAL */
-[data-testid="stRadio"] div[role="radiogroup"] label {
+div[data-testid="stRadio"] div[role="radiogroup"] label {
     background-color: rgba(255, 255, 255, 0.05) !important;
     padding: 12px 15px !important;
     border-radius: 12px !important;
     margin-bottom: 8px !important;
     width: 100% !important; 
     max-width: 100% !important;
+    flex: 1 1 100% !important; 
     display: flex !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
@@ -61,11 +55,12 @@ st.markdown("""
     border: 1px solid transparent !important;
 }
 
-/* Forzar que el texto interno también ocupe todo el ancho sin romperse */
-[data-testid="stRadio"] div[role="radiogroup"] label div {
+div[data-testid="stRadio"] div[role="radiogroup"] label div {
     width: 100% !important;
+    display: block !important;
 }
-[data-testid="stRadio"] div[role="radiogroup"] label p {
+
+div[data-testid="stRadio"] div[role="radiogroup"] label p {
     width: 100% !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -73,18 +68,15 @@ st.markdown("""
     margin: 0 !important;
 }
 
-/* Efecto al pasar el ratón por encima */
-[data-testid="stRadio"] div[role="radiogroup"] label:hover {
+div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
     background-color: rgba(168, 85, 247, 0.15) !important;
 }
 
-/* Estilo para el chat SELECCIONADO (Activo) */
-[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
+div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     background-color: rgba(168, 85, 247, 0.3) !important;
     border: 1px solid rgba(168, 85, 247, 0.5) !important;
     box-shadow: 0 2px 10px rgba(168, 85, 247, 0.1) !important;
 }
-/* ------------------------------------------------------------------ */
 
 /* Caja de entrada de texto flotante */
 .stChatInputContainer {
@@ -101,18 +93,20 @@ st.title("Neura AI")
 st.caption("Desarrollado y programado por Aitor")
 st.divider()
 
-# --- 2. SISTEMA DE ROTACIÓN DE API KEYS ---
-try:
-    api_keys = [st.secrets["GROQ_API_KEY_1"], st.secrets["GROQ_API_KEY_2"]]
-except KeyError:
-    st.error("Error técnico: Faltan GROQ_API_KEY_1 o GROQ_API_KEY_2 en Streamlit Secrets.")
+# --- 2. SISTEMA DE ROTACIÓN DE API KEYS DINÁMICO ---
+# Captura automáticamente cualquier clave que empiece por "GROQ_API_KEY"
+api_keys = [val for key, val in st.secrets.items() if key.startswith("GROQ_API_KEY")]
+
+if not api_keys:
+    st.error("⚠️ Error técnico: No se encontraron claves API de Groq en los secretos de Streamlit.")
     st.stop()
 
 if "api_index" not in st.session_state:
     st.session_state.api_index = 0
 
-clave_actual = api_keys[st.session_state.api_index]
-client = Groq(api_key=clave_actual)
+# Asegurarse de que el índice no se salga de rango si se cambian las claves
+st.session_state.api_index = st.session_state.api_index % len(api_keys)
+client = Groq(api_key=api_keys[st.session_state.api_index])
 
 instrucciones = """
 Eres Neura, un asistente de IA muy avanzado y educado.
@@ -124,7 +118,7 @@ No uses emojis y mantén un tono profesional.
 No digas tu nombre en todos los chats.
 """
 
-# --- 3. BARRA LATERAL (Gestión total de salas de chat) ---
+# --- 3. BARRA LATERAL ---
 with st.sidebar:
     st.title("Mis Chats")
     
@@ -133,7 +127,6 @@ with st.sidebar:
     if "chat_actual" not in st.session_state:
         st.session_state.chat_actual = "Nuevo Chat"
 
-    # LOS BOTONES ORIGINALES INTACTOS EN SUS COLUMNAS COMO QUERÍAS
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Nuevo", use_container_width=True):
@@ -150,18 +143,22 @@ with st.sidebar:
             
     with col2:
         if st.button("Borrar", use_container_width=True):
-            del st.session_state.chats[st.session_state.chat_actual]
+            if st.session_state.chat_actual in st.session_state.chats:
+                del st.session_state.chats[st.session_state.chat_actual]
             
-            if len(st.session_state.chats) == 0:
+            if not st.session_state.chats:
                 st.session_state.chats = {"Nuevo Chat": []}
                 
             st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
             st.rerun()
 
+    # Manejo seguro del radio button por si el chat actual fue borrado externamente
+    chat_seleccionado = st.session_state.chat_actual if st.session_state.chat_actual in st.session_state.chats else list(st.session_state.chats.keys())[0]
+    
     st.session_state.chat_actual = st.radio(
         "Selecciona una conversación:", 
         list(st.session_state.chats.keys()), 
-        index=list(st.session_state.chats.keys()).index(st.session_state.chat_actual)
+        index=list(st.session_state.chats.keys()).index(chat_seleccionado)
     )
 
     st.divider()
@@ -169,7 +166,7 @@ with st.sidebar:
     archivo_subido = st.file_uploader("Sube texto", type=["txt"])
     
     st.divider()
-    st.caption(f"Servidor en uso: {st.session_state.api_index + 1}")
+    st.caption(f"Servidor en uso: {st.session_state.api_index + 1} de {len(api_keys)}")
     st.caption("NeuraAI")
 
 # --- 4. MOTOR GRÁFICO PERSONALIZADO ---
@@ -191,7 +188,7 @@ def renderizar_mensaje(rol, texto):
 </div>
 """, unsafe_allow_html=True)
 
-# Imprimir el historial de la conversación
+# Imprimir el historial de la conversación actual
 for mensaje in st.session_state.chats[st.session_state.chat_actual]:
     rol_correcto = "assistant" if mensaje["rol"] in ["bot", "assistant", "ia"] else "user"
     renderizar_mensaje(rol_correcto, mensaje["texto"])
@@ -206,11 +203,14 @@ if prompt:
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
     
     mensajes_api = [{"role": "system", "content": instrucciones}]
-    for m in st.session_state.chats[st.session_state.chat_actual][-5:]:
+    # Ampliado a 10 para que Neura tenga mejor memoria a corto plazo
+    for m in st.session_state.chats[st.session_state.chat_actual][-10:]:
         rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
         mensajes_api.append({"role": rol_api, "content": m["texto"]})
     
+    # Solución al bug del puntero de lectura de archivos
     if archivo_subido is not None:
+        archivo_subido.seek(0) # Reinicia la lectura para no enviar textos vacíos en el segundo prompt
         texto_archivo = archivo_subido.read().decode('utf-8')
         mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto:]\n{texto_archivo}"
 
@@ -227,25 +227,25 @@ if prompt:
             
             st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
 
+            # Lógica de renombramiento automático
             if es_primer_mensaje:
                 nuevo_titulo = prompt[:20] + "..." if len(prompt) > 20 else prompt
                 base_titulo = nuevo_titulo
                 contador_titulo = 1
+                
+                # Evitar colisiones de nombres
                 while nuevo_titulo in st.session_state.chats and nuevo_titulo != st.session_state.chat_actual:
                     nuevo_titulo = f"{base_titulo} ({contador_titulo})"
                     contador_titulo += 1
                 
-                nuevos_chats = {}
-                for clave, valor in st.session_state.chats.items():
-                    if clave == st.session_state.chat_actual:
-                        nuevos_chats[nuevo_titulo] = valor
-                    else:
-                        nuevos_chats[clave] = valor
-                
-                st.session_state.chats = nuevos_chats
+                # Reconstruir el diccionario manteniendo el orden
+                st.session_state.chats = {
+                    (nuevo_titulo if k == st.session_state.chat_actual else k): v 
+                    for k, v in st.session_state.chats.items()
+                }
                 st.session_state.chat_actual = nuevo_titulo
                 st.rerun()
             
         except Exception as e:
-            st.error("Fallo en la conexión. Cambiando de servidor... Por favor, vuelve a enviar tu mensaje.")
+            st.error(f"⚠️ Error: {e}. Cambiando de servidor...")
             st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
