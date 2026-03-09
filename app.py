@@ -12,26 +12,16 @@ st.set_page_config(page_title="Neura AI", layout="wide")
 
 st.markdown("""
 <style>
-/* --- ELIMINACIÓN DE PARPADEO Y FORZADO DE FONDO --- */
+/* --- ELIMINACIÓN DE PARPADEO Y FORZADO DE FONDO ADAPTATIVO --- */
+/* Al quitar los colores fijos, Streamlit adaptará las letras automáticamente al modo Claro u Oscuro */
 html, body, [data-testid="stAppViewContainer"], .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
     background-attachment: fixed !important;
-    background-color: #0e1117 !important; 
 }
 
 * {
     -webkit-font-smoothing: antialiased !important;
     -moz-osx-font-smoothing: grayscale !important;
-}
-
-/* --- TEXTO BLANCO SOLO PARA TÍTULOS Y ETIQUETAS (EXCLUYE BOTONES) --- */
-h1, h2, h3, h4, h5, h6, label p, [data-testid="stCaptionContainer"] p, div[data-testid="stMarkdownContainer"] p {
-    color: #ffffff !important;
-}
-
-/* Restaurar los botones a su color original */
-button div[data-testid="stMarkdownContainer"] p {
-    color: inherit !important;
 }
 
 /* --- PANEL LATERAL (Visuales sin romper el layout) --- */
@@ -98,6 +88,27 @@ def enviar_correo_mfa(destinatario, codigo):
         print(f"Error SMTP: {e}")
         return False
 
+# NUEVA FUNCIÓN: Enviar correo de sugerencia al equipo de soporte
+def enviar_correo_sugerencia(usuario, texto):
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_REMITENTE
+        msg['To'] = EMAIL_REMITENTE  # Se envía al propio correo de soporte
+        msg['Subject'] = f"Nueva Sugerencia de Neura AI de {usuario}"
+        
+        cuerpo = f"El usuario {usuario} ha enviado la siguiente sugerencia:\n\n{texto}"
+        msg.attach(MIMEText(cuerpo, 'plain'))
+        
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_REMITENTE, EMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Error SMTP Sugerencia: {e}")
+        return False
+
 def validar_contrasena(password):
     if len(password) < 6: return False, "La contraseña debe tener al menos 6 caracteres."
     if not re.search(r"[A-Z]", password): return False, "La contraseña debe contener al menos una mayúscula."
@@ -129,7 +140,13 @@ def login_usuario_firebase(email, password):
 def enviar_reset_password(email):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
     res = requests.post(url, json={"requestType": "PASSWORD_RESET", "email": email})
-    return res.status_code == 200
+    if res.status_code == 200:
+        return True, "Se ha enviado un correo. Revisa tu bandeja de entrada o la carpeta de spam."
+    else:
+        err = res.json().get("error", {}).get("message", "Error desconocido")
+        if err == "EMAIL_NOT_FOUND":
+            return False, "El correo introducido no está registrado en el sistema."
+        return False, "No se pudo enviar el correo. Verifica la dirección."
 
 def borrar_cuenta_firebase(id_token):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:delete?key={FIREBASE_API_KEY}"
@@ -149,7 +166,7 @@ def guardar_chats_firebase(uid, token, chats):
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
 if "esperando_mfa" not in st.session_state: st.session_state.esperando_mfa = False
 if "olvido_pass" not in st.session_state: st.session_state.olvido_pass = False
-if "confirmar_borrado" not in st.session_state: st.session_state.confirmar_borrado = False # Nueva variable para confirmación
+if "confirmar_borrado" not in st.session_state: st.session_state.confirmar_borrado = False
 
 # --- PANTALLA DE LOGIN / REGISTRO / MFA / RECUPERACIÓN ---
 if not st.session_state.autenticado:
@@ -165,8 +182,11 @@ if not st.session_state.autenticado:
             st.write("Te enviaremos un enlace oficial para crear una nueva contraseña.")
             email_reset = st.text_input("Introduce tu correo electrónico")
             if st.button("Enviar enlace de recuperación", use_container_width=True):
-                if enviar_reset_password(email_reset): st.success("Se ha enviado un correo. Revisa tu bandeja de entrada, si no aparece revisa en la bandeja de spam.")
-                else: st.error("No se pudo enviar el correo. Verifica la dirección.")
+                exito, mensaje = enviar_reset_password(email_reset)
+                if exito:
+                    st.success(mensaje)
+                else:
+                    st.error(mensaje)
             if st.button("Volver al inicio", use_container_width=True):
                 st.session_state.olvido_pass = False
                 st.rerun()
@@ -275,7 +295,7 @@ if st.session_state.confirmar_borrado:
         if st.button("Cancelar", use_container_width=True):
             st.session_state.confirmar_borrado = False
             st.rerun()
-    st.stop() # Esto oculta el resto de la aplicación hasta que elijas una opción
+    st.stop()
 
 api_keys = [val for key, val in st.secrets.items() if key.startswith("GROQ_API_KEY")]
 
@@ -308,10 +328,27 @@ with st.sidebar:
         
     st.divider()
     
+    # BUZÓN DE SUGERENCIAS
+    with st.expander("💡 Enviar Sugerencia"):
+        with st.form("form_sugerencia"):
+            st.write("¿Qué mejorarías de Neura AI?")
+            texto_sugerencia = st.text_area("Escribe aquí tu idea:", height=100)
+            if st.form_submit_button("Enviar a Soporte", use_container_width=True):
+                if texto_sugerencia.strip() == "":
+                    st.warning("El mensaje está vacío.")
+                else:
+                    with st.spinner("Enviando..."):
+                        if enviar_correo_sugerencia(st.session_state.usuario_email, texto_sugerencia):
+                            st.success("¡Gracias! Tu sugerencia ha sido enviada.")
+                        else:
+                            st.error("Error al enviar la sugerencia.")
+    
+    st.divider()
+
     with st.expander("Configuración de Cuenta"):
         st.warning("Acción irreversible")
         if st.button("Eliminar mi cuenta definitivamente"):
-            st.session_state.confirmar_borrado = True # Ahora solo activa la pantalla de confirmación
+            st.session_state.confirmar_borrado = True
             st.rerun()
 
     st.divider()
@@ -363,7 +400,7 @@ def renderizar_mensaje(rol, texto):
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 20px;">
     <div style="background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 20px 20px 20px 4px; padding: 10px 16px; max-width: 75%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); backdrop-filter: blur(16px); font-weight: 400;">
-        <span style="color: white !important;">{texto}</span>
+        <span style="color: inherit !important;">{texto}</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
