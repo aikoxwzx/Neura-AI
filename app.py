@@ -13,7 +13,6 @@ st.set_page_config(page_title="Neura AI", layout="wide")
 st.markdown("""
 <style>
 /* --- ELIMINACIÓN DE PARPADEO Y FORZADO DE FONDO ADAPTATIVO --- */
-/* Al quitar los colores fijos, Streamlit adaptará las letras automáticamente al modo Claro u Oscuro */
 html, body, [data-testid="stAppViewContainer"], .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
     background-attachment: fixed !important;
@@ -22,6 +21,16 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 * {
     -webkit-font-smoothing: antialiased !important;
     -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* --- ESTILO MORADO CLARO PARA LOS FORMULARIOS DE LOGIN (COMO EL CHAT) --- */
+[data-testid="stForm"] {
+    background-color: rgba(168, 85, 247, 0.1) !important;
+    border: 1px solid rgba(168, 85, 247, 0.3) !important;
+    border-radius: 20px !important;
+    padding: 25px !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+    backdrop-filter: blur(16px) !important;
 }
 
 /* --- PANEL LATERAL (Visuales sin romper el layout) --- */
@@ -88,12 +97,11 @@ def enviar_correo_mfa(destinatario, codigo):
         print(f"Error SMTP: {e}")
         return False
 
-# NUEVA FUNCIÓN: Enviar correo de sugerencia al equipo de soporte
 def enviar_correo_sugerencia(usuario, texto):
     try:
         msg = MIMEMultipart()
         msg['From'] = EMAIL_REMITENTE
-        msg['To'] = EMAIL_REMITENTE  # Se envía al propio correo de soporte
+        msg['To'] = EMAIL_REMITENTE
         msg['Subject'] = f"Nueva Sugerencia de Neura AI de {usuario}"
         
         cuerpo = f"El usuario {usuario} ha enviado la siguiente sugerencia:\n\n{texto}"
@@ -144,8 +152,7 @@ def enviar_reset_password(email):
         return True, "Se ha enviado un correo. Revisa tu bandeja de entrada o la carpeta de spam."
     else:
         err = res.json().get("error", {}).get("message", "Error desconocido")
-        if err == "EMAIL_NOT_FOUND":
-            return False, "El correo introducido no está registrado en el sistema."
+        if err == "EMAIL_NOT_FOUND": return False, "El correo introducido no está registrado en el sistema."
         return False, "No se pudo enviar el correo. Verifica la dirección."
 
 def borrar_cuenta_firebase(id_token):
@@ -178,48 +185,50 @@ if not st.session_state.autenticado:
         
         # FLUJO 1: RECUPERAR CONTRASEÑA
         if st.session_state.olvido_pass:
-            st.subheader("Restablecer Contraseña")
-            st.write("Te enviaremos un enlace oficial para crear una nueva contraseña.")
-            email_reset = st.text_input("Introduce tu correo electrónico")
-            if st.button("Enviar enlace de recuperación", use_container_width=True):
-                exito, mensaje = enviar_reset_password(email_reset)
-                if exito:
-                    st.success(mensaje)
-                else:
-                    st.error(mensaje)
+            with st.form("form_recuperar"):
+                st.subheader("Restablecer Contraseña")
+                st.write("Te enviaremos un enlace oficial para crear una nueva contraseña.")
+                email_reset = st.text_input("Introduce tu correo electrónico")
+                enviar = st.form_submit_button("Enviar enlace de recuperación", use_container_width=True)
+                if enviar:
+                    exito, mensaje = enviar_reset_password(email_reset)
+                    if exito: st.success(mensaje)
+                    else: st.error(mensaje)
             if st.button("Volver al inicio", use_container_width=True):
                 st.session_state.olvido_pass = False
                 st.rerun()
 
         # FLUJO 2: MFA (CÓDIGO DE 6 DÍGITOS REAL)
         elif st.session_state.esperando_mfa:
-            st.subheader("Verificación en dos pasos")
-            st.write(f"Introduce el código enviado a {st.session_state.temp_email}")
-            
-            codigo_usuario = st.text_input("Código de seguridad", max_chars=6)
-            if st.button("Verificar", use_container_width=True):
-                if codigo_usuario == st.session_state.codigo_mfa:
-                    st.session_state.autenticado = True
-                    st.session_state.usuario_email = st.session_state.temp_email
-                    st.session_state.id_token = st.session_state.temp_token
-                    st.session_state.user_uid = st.session_state.temp_uid
-                    
-                    chats_guardados = cargar_chats_firebase(st.session_state.user_uid, st.session_state.id_token)
-                    if not chats_guardados: chats_guardados = {}
-                    
-                    base_nombre = "Nuevo Chat"
-                    nuevo_nombre = base_nombre
-                    contador = 1
-                    while nuevo_nombre in chats_guardados:
-                        nuevo_nombre = f"{base_nombre} ({contador})"
-                        contador += 1
+            with st.form("form_mfa"):
+                st.subheader("Verificación en dos pasos")
+                st.write(f"Introduce el código enviado a {st.session_state.temp_email}")
+                codigo_usuario = st.text_input("Código de seguridad", max_chars=6)
+                verificar = st.form_submit_button("Verificar", use_container_width=True)
+                
+                if verificar:
+                    if codigo_usuario == st.session_state.codigo_mfa:
+                        st.session_state.autenticado = True
+                        st.session_state.usuario_email = st.session_state.temp_email
+                        st.session_state.id_token = st.session_state.temp_token
+                        st.session_state.user_uid = st.session_state.temp_uid
                         
-                    chats_guardados[nuevo_nombre] = []
-                    st.session_state.chats = chats_guardados
-                    st.session_state.chat_actual = nuevo_nombre
-                    st.session_state.esperando_mfa = False
-                    st.rerun()
-                else: st.error("El código es incorrecto.")
+                        chats_guardados = cargar_chats_firebase(st.session_state.user_uid, st.session_state.id_token)
+                        if not chats_guardados: chats_guardados = {}
+                        
+                        base_nombre = "Nuevo Chat"
+                        nuevo_nombre = base_nombre
+                        contador = 1
+                        while nuevo_nombre in chats_guardados:
+                            nuevo_nombre = f"{base_nombre} ({contador})"
+                            contador += 1
+                            
+                        chats_guardados[nuevo_nombre] = []
+                        st.session_state.chats = chats_guardados
+                        st.session_state.chat_actual = nuevo_nombre
+                        st.session_state.esperando_mfa = False
+                        st.rerun()
+                    else: st.error("El código es incorrecto.")
             if st.button("Cancelar", use_container_width=True):
                 st.session_state.esperando_mfa = False
                 st.rerun()
@@ -246,8 +255,7 @@ if not st.session_state.autenticado:
                                     st.session_state.temp_uid = uid
                                     st.session_state.codigo_mfa = codigo_generado
                                     st.rerun()
-                                else:
-                                    st.error("Error al enviar el correo. Revisa la configuración de SMTP.")
+                                else: st.error("Error al enviar el correo. Revisa la configuración de SMTP.")
                         else: st.error(token_o_msg)
                 
                 if st.button("¿Has olvidado la contraseña?", use_container_width=True):
@@ -382,7 +390,8 @@ with st.sidebar:
 
     st.divider()
     st.markdown("### Analizar Archivo")
-    archivo_subido = st.file_uploader("Sube texto", type=["txt"])
+    # AHORA ACEPTA TODO TIPO DE ARCHIVOS
+    archivo_subido = st.file_uploader("Sube cualquier archivo", type=None) 
     st.divider()
     st.caption(f"Servidor en uso: {st.session_state.api_index + 1} de {len(api_keys)}")
     st.caption("NeuraAI")
@@ -422,10 +431,28 @@ if prompt:
         rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
         mensajes_api.append({"role": rol_api, "content": m["texto"]})
     
+    # NUEVA LÓGICA DE LECTURA DE ARCHIVOS DE TODO TIPO
     if archivo_subido is not None:
         archivo_subido.seek(0)
-        texto_archivo = archivo_subido.read().decode('utf-8')
-        mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto:]\n{texto_archivo}"
+        nombre_archivo = archivo_subido.name.lower()
+        texto_extraido = ""
+        
+        try:
+            if nombre_archivo.endswith('.pdf'):
+                try:
+                    import PyPDF2
+                    lector = PyPDF2.PdfReader(archivo_subido)
+                    for pagina in lector.pages:
+                        if pagina.extract_text():
+                            texto_extraido += pagina.extract_text() + "\n"
+                except ImportError:
+                    texto_extraido = "[Aviso del sistema: Para que Neura pueda leer PDFs, el desarrollador (Aitor) debe añadir 'PyPDF2' al archivo requirements.txt en GitHub.]"
+            else:
+                texto_extraido = archivo_subido.read().decode('utf-8')
+        except Exception:
+            texto_extraido = f"[Aviso del sistema: El archivo {archivo_subido.name} es de un tipo binario (como una imagen, video o documento complejo) que el modelo de texto actual no puede procesar directamente.]"
+            
+        mensajes_api[-1]["content"] = f"{prompt}\n\n[Contenido del archivo subido ({archivo_subido.name}):]\n{texto_extraido[:25000]}"
 
     with st.spinner("Procesando..."):
         try:
