@@ -3,6 +3,8 @@ import requests
 import re
 import random
 import smtplib
+import json
+import io
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from groq import Groq
@@ -77,7 +79,7 @@ except KeyError:
 
 FIREBASE_DB_URL = "https://neura-ai-2026-default-rtdb.europe-west1.firebasedatabase.app"
 
-# NUEVA FUNCIÓN: Formatear chat para TXT
+# FUNCIÓN: Formatear chat para TXT
 def formatear_chat_a_txt(nombre_chat, mensajes):
     texto = f"=== HISTORIAL DE CHAT: {nombre_chat} ===\n\n"
     for m in mensajes:
@@ -296,7 +298,7 @@ st.divider()
 
 # --- PANTALLA DE CONFIRMACIÓN DE BORRADO ---
 if st.session_state.confirmar_borrado:
-    st.error("⚠️ **¿Estás completamente seguro de que quieres borrar tu cuenta?** Esta acción es irreversible y perderás todos tus datos y chats para siempre.")
+    st.error("**¿Estás completamente seguro de que quieres borrar tu cuenta?** Esta acción es irreversible y perderás todos tus datos y chats para siempre.")
     col_conf1, col_conf2 = st.columns(2)
     with col_conf1:
         if st.button("Sí, borrar mi cuenta definitivamente", use_container_width=True):
@@ -396,7 +398,8 @@ with st.sidebar:
     chat_seleccionado = st.session_state.chat_actual if st.session_state.chat_actual in st.session_state.chats else list(st.session_state.chats.keys())[0]
     st.session_state.chat_actual = st.radio("Selecciona una conversación:", list(st.session_state.chats.keys()), index=list(st.session_state.chats.keys()).index(chat_seleccionado))
 
-    # BOTÓN DE EXPORTAR CHAT A TXT (El que sustituye a los "3 puntitos")
+    # BOTÓN DE EXPORTAR CHAT A TXT
+    # Se genera el TXT de la conversación actual seleccionado
     chat_para_exportar = formatear_chat_a_txt(st.session_state.chat_actual, st.session_state.chats[st.session_state.chat_actual])
     st.download_button(
         label="📄 Exportar chat actual a TXT",
@@ -432,10 +435,28 @@ for mensaje in st.session_state.chats[st.session_state.chat_actual]:
     rol_correcto = "assistant" if mensaje["rol"] in ["bot", "assistant", "ia"] else "user"
     renderizar_mensaje(rol_correcto, mensaje["texto"])
 
-# BOTÓN DE ADJUNTAR TIPO GEMINI (Menú desplegable justo encima del chat)
-archivo_subido = None
-with st.popover("📎 Adjuntar archivo"):
-    archivo_subido = st.file_uploader("Sube cualquier archivo para analizarlo", type=None, label_visibility="collapsed")
+# --- LÓGICA DE ADJUNTAR TIPO GEMINI (Menú desplegable "+") ---
+# El usuario pulsa "+", se abre el popover, elige qué hacer, y luego escribe el prompt.
+if "adjuntar_modo" not in st.session_state: st.session_state.adjuntar_modo = "files"
+
+# Botón "+" de Gemini
+with st.popover("📎 +"):
+    # El usuario elige la acción (Files o Imagen UI)
+    st.session_state.adjuntar_modo = st.radio(
+        "Menu", ["Files", "Imagen (UI)"], 
+        horizontal=True, # Para el look de Gemini popover
+        label_visibility="collapsed"
+    )
+    
+    archivo_subido = None
+    if st.session_state.adjuntar_modo == "Files":
+        st.write("Analizar Archivos (Texto/PDF)")
+        archivo_subido = st.file_uploader("Arrastra archivo...", type=None, label_visibility="collapsed")
+    elif st.session_state.adjuntar_modo == "Imagen (UI)":
+        st.write("Generar Imagen (Placeholder)")
+        st.info("Aviso técnico: Neura (Llama 3) solo procesa texto. No puede crear imágenes.")
+        # Usamos state para el prompt de imagen
+        st.text_input("Prompt de imagen:", key="st_prompt_imagen")
 
 prompt = st.chat_input("Escribe tu mensaje aquí...")
 
@@ -450,8 +471,10 @@ if prompt:
         rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
         mensajes_api.append({"role": rol_api, "content": m["texto"]})
     
-    # LECTURA DEL ARCHIVO ADJUNTO
-    if archivo_subido is not None:
+    # LECTURA DEL ARCHIVO ADJUNTO O CONTEXTO DE IMAGEN
+    
+    # Caso 1: Modo Archivos activo
+    if archivo_subido is not None and st.session_state.adjuntar_modo == "Files":
         archivo_subido.seek(0)
         nombre_archivo = archivo_subido.name.lower()
         texto_extraido = ""
@@ -472,6 +495,16 @@ if prompt:
             texto_extraido = f"[Aviso del sistema: El archivo {archivo_subido.name} es de un tipo binario (como una imagen, video o documento complejo) que el modelo de texto actual no puede procesar directamente.]"
             
         mensajes_api[-1]["content"] = f"{prompt}\n\n[Contenido del archivo subido ({archivo_subido.name}):]\n{texto_extraido[:25000]}"
+
+    # Caso 2: Modo Imagen activo y hay prompt
+    imagen_contexto = st.session_state.get("st_prompt_imagen", "").strip()
+    if st.session_state.adjuntar_modo == "Imagen (UI)" and imagen_contexto:
+        # Añadimos contexto como una instrucción de sistema invisible justo antes de la llamada a la API
+        instruction = f"[Instrucción de sistema: El usuario compartió este prompt de imagen en el menú de creación: '{imagen_contexto}'. Recuerda que eres una IA de texto creada por Aitor y no puedes generar imágenes. Responde en consecuencia amablemente.]"
+        mensajes_api.insert(-1, {"role": "user", "content": instruction})
+        
+        # Limpiamos el prompt para la siguiente vez
+        del st.session_state.st_prompt_imagen
 
     with st.spinner("Procesando..."):
         try:
