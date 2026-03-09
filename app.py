@@ -23,7 +23,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     -moz-osx-font-smoothing: grayscale !important;
 }
 
-/* --- ESTILO MORADO CLARO PARA LOS FORMULARIOS DE LOGIN (COMO EL CHAT) --- */
+/* --- ESTILO MORADO CLARO PARA LOS FORMULARIOS DE LOGIN --- */
 [data-testid="stForm"] {
     background-color: rgba(168, 85, 247, 0.1) !important;
     border: 1px solid rgba(168, 85, 247, 0.3) !important;
@@ -76,6 +76,15 @@ except KeyError:
     st.stop()
 
 FIREBASE_DB_URL = "https://neura-ai-2026-default-rtdb.europe-west1.firebasedatabase.app"
+
+# NUEVA FUNCIÓN: Formatear chat para TXT
+def formatear_chat_a_txt(nombre_chat, mensajes):
+    texto = f"=== HISTORIAL DE CHAT: {nombre_chat} ===\n\n"
+    for m in mensajes:
+        rol = "Usuario" if m["rol"] == "user" else "Neura AI"
+        texto += f"[{rol}]:\n{m['texto']}\n\n"
+        texto += "-" * 50 + "\n"
+    return texto
 
 def enviar_correo_mfa(destinatario, codigo):
     try:
@@ -336,7 +345,6 @@ with st.sidebar:
         
     st.divider()
     
-    # BUZÓN DE SUGERENCIAS
     with st.expander("💡 Enviar Sugerencia"):
         with st.form("form_sugerencia"):
             st.write("¿Qué mejorarías de Neura AI?")
@@ -388,10 +396,16 @@ with st.sidebar:
     chat_seleccionado = st.session_state.chat_actual if st.session_state.chat_actual in st.session_state.chats else list(st.session_state.chats.keys())[0]
     st.session_state.chat_actual = st.radio("Selecciona una conversación:", list(st.session_state.chats.keys()), index=list(st.session_state.chats.keys()).index(chat_seleccionado))
 
-    st.divider()
-    st.markdown("### Analizar Archivo")
-    # AHORA ACEPTA TODO TIPO DE ARCHIVOS
-    archivo_subido = st.file_uploader("Sube cualquier archivo", type=None) 
+    # BOTÓN DE EXPORTAR CHAT A TXT (El que sustituye a los "3 puntitos")
+    chat_para_exportar = formatear_chat_a_txt(st.session_state.chat_actual, st.session_state.chats[st.session_state.chat_actual])
+    st.download_button(
+        label="📄 Exportar chat actual a TXT",
+        data=chat_para_exportar,
+        file_name=f"{st.session_state.chat_actual.replace(' ', '_')}.txt",
+        mime="text/plain",
+        use_container_width=True
+    )
+
     st.divider()
     st.caption(f"Servidor en uso: {st.session_state.api_index + 1} de {len(api_keys)}")
     st.caption("NeuraAI")
@@ -418,6 +432,11 @@ for mensaje in st.session_state.chats[st.session_state.chat_actual]:
     rol_correcto = "assistant" if mensaje["rol"] in ["bot", "assistant", "ia"] else "user"
     renderizar_mensaje(rol_correcto, mensaje["texto"])
 
+# BOTÓN DE ADJUNTAR TIPO GEMINI (Menú desplegable justo encima del chat)
+archivo_subido = None
+with st.popover("📎 Adjuntar archivo"):
+    archivo_subido = st.file_uploader("Sube cualquier archivo para analizarlo", type=None, label_visibility="collapsed")
+
 prompt = st.chat_input("Escribe tu mensaje aquí...")
 
 if prompt:
@@ -431,7 +450,7 @@ if prompt:
         rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
         mensajes_api.append({"role": rol_api, "content": m["texto"]})
     
-    # NUEVA LÓGICA DE LECTURA DE ARCHIVOS DE TODO TIPO
+    # LECTURA DEL ARCHIVO ADJUNTO
     if archivo_subido is not None:
         archivo_subido.seek(0)
         nombre_archivo = archivo_subido.name.lower()
