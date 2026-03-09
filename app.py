@@ -17,11 +17,17 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
     background-attachment: fixed !important;
     background-color: #0e1117 !important; 
+    color: #ffffff !important;
 }
 
 * {
     -webkit-font-smoothing: antialiased !important;
     -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* --- FORZAR TEXTO BLANCO PARA SOBREESCRIBIR EL MODO CLARO --- */
+h1, h2, h3, h4, h5, h6, p, label, span, [data-testid="stCaptionContainer"] * {
+    color: #ffffff !important;
 }
 
 /* --- PANEL LATERAL (Visuales sin romper el layout) --- */
@@ -336,7 +342,7 @@ def renderizar_mensaje(rol, texto):
         st.markdown(f"""
 <div style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 20px;">
     <div style="background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 20px 20px 20px 4px; padding: 10px 16px; max-width: 75%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); backdrop-filter: blur(16px); font-weight: 400;">
-        <span>{texto}</span>
+        <span style="color: white !important;">{texto}</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
