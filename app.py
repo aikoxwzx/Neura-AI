@@ -149,6 +149,7 @@ def guardar_chats_firebase(uid, token, chats):
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
 if "esperando_mfa" not in st.session_state: st.session_state.esperando_mfa = False
 if "olvido_pass" not in st.session_state: st.session_state.olvido_pass = False
+if "confirmar_borrado" not in st.session_state: st.session_state.confirmar_borrado = False # Nueva variable para confirmación
 
 # --- PANTALLA DE LOGIN / REGISTRO / MFA / RECUPERACIÓN ---
 if not st.session_state.autenticado:
@@ -256,6 +257,26 @@ st.title("Neura AI")
 st.caption("Desarrollado y programado por Aitor")
 st.divider()
 
+# --- PANTALLA DE CONFIRMACIÓN DE BORRADO ---
+if st.session_state.confirmar_borrado:
+    st.error("⚠️ **¿Estás completamente seguro de que quieres borrar tu cuenta?** Esta acción es irreversible y perderás todos tus datos y chats para siempre.")
+    col_conf1, col_conf2 = st.columns(2)
+    with col_conf1:
+        if st.button("Sí, borrar mi cuenta definitivamente", use_container_width=True):
+            if borrar_cuenta_firebase(st.session_state.id_token):
+                st.session_state.autenticado = False
+                st.session_state.chats = {"Nuevo Chat": []}
+                st.session_state.confirmar_borrado = False
+                st.success("Tu cuenta y credenciales han sido eliminadas.")
+                st.rerun()
+            else: 
+                st.error("Por seguridad, debes cerrar sesión y volver a entrar antes de borrar tu cuenta.")
+    with col_conf2:
+        if st.button("Cancelar", use_container_width=True):
+            st.session_state.confirmar_borrado = False
+            st.rerun()
+    st.stop() # Esto oculta el resto de la aplicación hasta que elijas una opción
+
 api_keys = [val for key, val in st.secrets.items() if key.startswith("GROQ_API_KEY")]
 
 if not api_keys:
@@ -290,12 +311,8 @@ with st.sidebar:
     with st.expander("Configuración de Cuenta"):
         st.warning("Acción irreversible")
         if st.button("Eliminar mi cuenta definitivamente"):
-            if borrar_cuenta_firebase(st.session_state.id_token):
-                st.session_state.autenticado = False
-                st.session_state.chats = {"Nuevo Chat": []}
-                st.success("Tu cuenta y credenciales han sido eliminadas.")
-                st.rerun()
-            else: st.error("Por seguridad, debes cerrar sesión y volver a entrar antes de borrar tu cuenta.")
+            st.session_state.confirmar_borrado = True # Ahora solo activa la pantalla de confirmación
+            st.rerun()
 
     st.divider()
     st.title("Mis Chats")
