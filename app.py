@@ -17,7 +17,6 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     background-image: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(88, 28, 135, 0.3) 100%) !important;
     background-attachment: fixed !important;
     background-color: #0e1117 !important; 
-    color: #ffffff !important;
 }
 
 * {
@@ -25,9 +24,14 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     -moz-osx-font-smoothing: grayscale !important;
 }
 
-/* --- FORZAR TEXTO BLANCO PARA SOBREESCRIBIR EL MODO CLARO --- */
-h1, h2, h3, h4, h5, h6, p, label, span, [data-testid="stCaptionContainer"] * {
+/* --- TEXTO BLANCO SOLO PARA TÍTULOS Y ETIQUETAS (EXCLUYE BOTONES) --- */
+h1, h2, h3, h4, h5, h6, label p, [data-testid="stCaptionContainer"] p, div[data-testid="stMarkdownContainer"] p {
     color: #ffffff !important;
+}
+
+/* Restaurar los botones a su color original */
+button div[data-testid="stMarkdownContainer"] p {
+    color: inherit !important;
 }
 
 /* --- PANEL LATERAL (Visuales sin romper el layout) --- */
