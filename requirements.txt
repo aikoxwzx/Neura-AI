@@ -3,3 +3,5 @@ groq
 requests
 PyPDF2
 extra-streamlit-components
+google-generativeai
+Pillow
