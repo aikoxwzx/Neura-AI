@@ -113,7 +113,7 @@ def enviar_correo_sugerencia(usuario, texto):
     except Exception: return False
 
 def validar_contrasena(password):
-    if len(password) < 6: return False, "La contrasena debe tener al menos 6 caracteres."
+    if len(password) < 6: return False, "La contraseña debe tener al menos 6 caracteres."
     if not re.search(r"[A-Z]", password): return False, "Falta una mayuscula."
     if not re.search(r"[a-z]", password): return False, "Falta una minuscula."
     if not re.search(r"[0-9]", password): return False, "Falta un numero."
@@ -137,7 +137,7 @@ def login_usuario_firebase(email, password):
         return True, datos['idToken'], datos['localId']
     err = res.json().get("error", {}).get("message", "Error desconocido")
     if err in ["INVALID_LOGIN_CREDENTIALS", "INVALID_PASSWORD", "EMAIL_NOT_FOUND"]:
-        return False, "Correo o contrasena incorrectos.", None
+        return False, "Correo o contraseña incorrectos.", None
     return False, err, None
 
 def enviar_reset_password(email):
@@ -176,8 +176,8 @@ if not st.session_state.autenticado:
         
         if st.session_state.olvido_pass:
             with st.form("form_recuperar"):
-                st.subheader("Restablecer Contrasena")
-                st.write("Te enviaremos un enlace oficial para crear una nueva contrasena.")
+                st.subheader("Restablecer Contraseña")
+                st.write("Te enviaremos un enlace oficial para crear una nueva contraseña.")
                 email_reset = st.text_input("Introduce tu correo electronico")
                 if st.form_submit_button("Enviar enlace de recuperacion", use_container_width=True):
                     exito, mensaje = enviar_reset_password(email_reset)
@@ -213,7 +213,7 @@ if not st.session_state.autenticado:
             with tab_login:
                 with st.form("form_login"):
                     email_login = st.text_input("Correo electronico")
-                    pass_login = st.text_input("Contrasena", type="password")
+                    pass_login = st.text_input("Contraseña", type="password")
                     if st.form_submit_button("Entrar", use_container_width=True):
                         exito, token_o_msg, uid = login_usuario_firebase(email_login, pass_login)
                         if exito:
@@ -228,17 +228,17 @@ if not st.session_state.autenticado:
                                     st.rerun()
                                 else: st.error("Error al enviar el correo SMTP.")
                         else: st.error(token_o_msg)
-                if st.button("Has olvidado la contrasena?", use_container_width=True):
+                if st.button("¿Has olvidado la contraseña?", use_container_width=True):
                     st.session_state.olvido_pass = True
                     st.rerun()
                             
             with tab_registro:
                 with st.form("form_registro"):
                     email_reg = st.text_input("Nuevo Correo")
-                    pass_reg = st.text_input("Nueva Contrasena", type="password")
-                    pass_reg_conf = st.text_input("Confirmar Contrasena", type="password")
+                    pass_reg = st.text_input("Nueva Contraseña", type="password")
+                    pass_reg_conf = st.text_input("Confirmar Contraseña", type="password")
                     if st.form_submit_button("Crear cuenta", use_container_width=True):
-                        if pass_reg != pass_reg_conf: st.error("Las contrasenas no coinciden.")
+                        if pass_reg != pass_reg_conf: st.error("Las contraseñas no coinciden.")
                         else:
                             es_valida, msg_error = validar_contrasena(pass_reg)
                             if not es_valida: st.error(msg_error)
@@ -254,7 +254,7 @@ st.caption("Desarrollado y programado por Aitor")
 st.divider()
 
 if st.session_state.confirmar_borrado:
-    st.error("Atencion: Estas seguro de que quieres borrar tu cuenta? Esta accion es irreversible.")
+    st.error("Atencion: Estas seguro de que quieres borrar tu cuenta? Esta acción es irreversible.")
     col_conf1, col_conf2 = st.columns(2)
     with col_conf1:
         if st.button("Si, borrar mi cuenta", use_container_width=True):
