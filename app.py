@@ -342,13 +342,6 @@ with st.sidebar:
                         if enviar_correo_sugerencia(st.session_state.usuario_email, texto_sugerencia):
                             st.success("Gracias! Tu sugerencia ha sido enviada.")
                         else: st.error("Error al enviar la sugerencia.")
-    
-    st.divider()
-    with st.expander("Configuracion de Cuenta"):
-        st.warning("Accion irreversible")
-        if st.button("Eliminar mi cuenta", use_container_width=True):
-            st.session_state.confirmar_borrado = True
-            st.rerun()
 
     st.divider()
     st.title("Mis Chats")
@@ -383,6 +376,7 @@ with st.sidebar:
     st.divider()
     st.caption(f"Motor activo: {modelo_ia}")
     
+    st.divider()
     # Boton de cerrar sesion al final de la barra lateral
     if st.button("Cerrar Sesion", use_container_width=True):
         st.session_state.autenticado = False
@@ -391,6 +385,12 @@ with st.sidebar:
         controller.remove("neura_token")
         controller.remove("neura_uid")
         st.rerun()
+        
+    with st.expander("Configuracion de Cuenta"):
+        st.warning("Accion irreversible")
+        if st.button("Eliminar mi cuenta", use_container_width=True):
+            st.session_state.confirmar_borrado = True
+            st.rerun()
 
 def renderizar_mensaje(rol, texto):
     if rol == "user":
@@ -495,7 +495,7 @@ if prompt:
 
             # --- LOGICA DE GEMINI (Vision e Imagenes) ---
             elif modelo_ia == "Neura Vision (Analisis de Imagenes)":
-                modelo_vision = genai.GenerativeModel('gemini-2.5-flash')
+                modelo_vision = genai.GenerativeModel('gemini-1.5-flash')
                 
                 historial_gemini = []
                 for m in st.session_state.chats[st.session_state.chat_actual][-10:-1]:
