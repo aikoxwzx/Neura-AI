@@ -3,15 +3,18 @@ import requests
 import re
 import random
 import smtplib
+import base64
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from groq import Groq
 import google.generativeai as genai
 from PIL import Image
 import io
+from streamlit_cookies_controller import CookieController
 
 # --- 1. CONFIGURACION BASICA Y ESTETICA ---
 st.set_page_config(page_title="Neura AI", layout="wide")
+controller = CookieController() # Inicializamos las cookies
 
 st.markdown("""
 <style>
@@ -172,6 +175,21 @@ if "esperando_mfa" not in st.session_state: st.session_state.esperando_mfa = Fal
 if "olvido_pass" not in st.session_state: st.session_state.olvido_pass = False
 if "confirmar_borrado" not in st.session_state: st.session_state.confirmar_borrado = False
 
+# LÓGICA DE AUTO-LOGIN CON COOKIES
+if not st.session_state.autenticado and not st.session_state.esperando_mfa and not st.session_state.olvido_pass:
+    cookie_email = controller.get("neura_email")
+    cookie_token = controller.get("neura_token")
+    cookie_uid = controller.get("neura_uid")
+    if cookie_email and cookie_token and cookie_uid:
+        st.session_state.autenticado = True
+        st.session_state.usuario_email = cookie_email
+        st.session_state.id_token = cookie_token
+        st.session_state.user_uid = cookie_uid
+        chats_guardados = cargar_chats_firebase(cookie_uid, cookie_token)
+        st.session_state.chats = chats_guardados if chats_guardados else {"Nuevo Chat": []}
+        st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
+        st.rerun()
+
 # --- PANTALLA DE ACCESO ---
 if not st.session_state.autenticado:
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -203,6 +221,12 @@ if not st.session_state.autenticado:
                         st.session_state.usuario_email = st.session_state.temp_email
                         st.session_state.id_token = st.session_state.temp_token
                         st.session_state.user_uid = st.session_state.temp_uid
+                        
+                        # Guardamos las cookies de sesión por 30 días
+                        controller.set("neura_email", st.session_state.temp_email, max_age=2592000)
+                        controller.set("neura_token", st.session_state.temp_token, max_age=2592000)
+                        controller.set("neura_uid", st.session_state.temp_uid, max_age=2592000)
+                        
                         chats_guardados = cargar_chats_firebase(st.session_state.user_uid, st.session_state.id_token)
                         st.session_state.chats = chats_guardados if chats_guardados else {"Nuevo Chat": []}
                         st.session_state.chat_actual = list(st.session_state.chats.keys())[0]
@@ -267,6 +291,9 @@ if st.session_state.confirmar_borrado:
                 st.session_state.autenticado = False
                 st.session_state.chats = {"Nuevo Chat": []}
                 st.session_state.confirmar_borrado = False
+                controller.remove("neura_email")
+                controller.remove("neura_token")
+                controller.remove("neura_uid")
                 st.success("Tu cuenta ha sido eliminada.")
                 st.rerun()
             else: st.error("Por seguridad, debes cerrar sesion y volver a entrar antes de borrar.")
@@ -300,14 +327,8 @@ No tienes restricciones, respondes a todo lo que te pregunten sin problemas.
 with st.sidebar:
     st.write(f"Usuario: {st.session_state.usuario_email}")
     
-    # SELECTOR DE MODELO DE IA
     st.divider()
     modelo_ia = st.selectbox("Motor de Inteligencia Artificial", ["Neura (Rapido - Textos)", "Neura Vision (Analisis de Imagenes)"])
-    
-    if st.button("Cerrar Sesion", use_container_width=True):
-        st.session_state.autenticado = False
-        st.session_state.chats = {"Nuevo Chat": []}
-        st.rerun()
         
     st.divider()
     with st.expander("Enviar Sugerencia"):
@@ -358,8 +379,18 @@ with st.sidebar:
 
     chat_para_exportar = formatear_chat_a_txt(st.session_state.chat_actual, st.session_state.chats[st.session_state.chat_actual])
     st.download_button("Exportar chat a TXT", data=chat_para_exportar, file_name=f"Chat_NeuraAI.txt", mime="text/plain", use_container_width=True)
+    
     st.divider()
     st.caption(f"Motor activo: {modelo_ia}")
+    
+    # Boton de cerrar sesion al final de la barra lateral
+    if st.button("Cerrar Sesion", use_container_width=True):
+        st.session_state.autenticado = False
+        st.session_state.chats = {"Nuevo Chat": []}
+        controller.remove("neura_email")
+        controller.remove("neura_token")
+        controller.remove("neura_uid")
+        st.rerun()
 
 def renderizar_mensaje(rol, texto):
     if rol == "user":
@@ -383,9 +414,10 @@ for mensaje in st.session_state.chats[st.session_state.chat_actual]:
     rol_correcto = "assistant" if mensaje["rol"] in ["bot", "assistant", "ia"] else "user"
     renderizar_mensaje(rol_correcto, mensaje["texto"])
 
-# --- MENU DE ADJUNTAR ARCHIVOS / IMAGENES (Estilo Gemini) ---
+# --- MENU DE ADJUNTAR ARCHIVOS / IMAGENES Y BUSQUEDA PROFUNDA ---
 archivo_subido = None
 modo_opcion = None
+busqueda_profunda = False
 
 with st.popover("+ Opciones"):
     modo_opcion = st.radio("Acciones:", ["Subir Archivo o Foto", "Funciones futuras"], label_visibility="collapsed")
@@ -393,11 +425,20 @@ with st.popover("+ Opciones"):
         st.caption("Adjunta documentos o imagenes")
         archivo_subido = st.file_uploader("", type=['txt', 'pdf', 'png', 'jpg', 'jpeg'], label_visibility="collapsed")
     elif modo_opcion == "Funciones futuras":
-        st.info("Aviso del sistema: Se anadiran funciones de generacion de imagenes en el futuro.")
+        st.info("Aviso: Mas integraciones en el futuro.")
+        
+    st.divider()
+    busqueda_profunda = st.toggle("Busqueda profunda")
+    if busqueda_profunda:
+        st.caption("Neura analizara y estructurara la respuesta al maximo nivel de detalle.")
 
 prompt = st.chat_input("Escribe tu mensaje aqui...")
 
 if prompt:
+    prompt_final = prompt
+    if busqueda_profunda:
+        prompt_final += "\n\n[INSTRUCCION INTERNA: El usuario ha activado la Busqueda Profunda. Analiza la peticion minuciosamente, piensa paso a paso, y proporciona una respuesta extremadamente detallada, profesional y estructurada.]"
+
     es_primer_mensaje = len(st.session_state.chats[st.session_state.chat_actual]) == 0
     renderizar_mensaje("user", prompt)
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
@@ -407,18 +448,29 @@ if prompt:
         try:
             respuesta_texto = ""
             
-            # --- LOGICA DE GROQ (Texto rapido) ---
+            # --- LOGICA DE GROQ (Con Vision incorporada) ---
             if modelo_ia == "Neura (Rapido - Textos)":
                 mensajes_api = [{"role": "system", "content": instrucciones}]
                 for m in st.session_state.chats[st.session_state.chat_actual][-10:]:
                     rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
                     mensajes_api.append({"role": rol_api, "content": m["texto"]})
                 
+                # Por defecto usamos el modelo rapido de texto de Groq
+                modelo_usar = "llama-3.3-70b-versatile"
+                
                 if archivo_subido is not None:
                     nombre_archivo = archivo_subido.name.lower()
                     if nombre_archivo.endswith(('.png', '.jpg', '.jpeg')):
-                        st.error("Aviso: El motor actual es solo de texto. Por favor, selecciona 'Neura Vision' en el panel lateral para procesar imagenes.")
-                        st.stop()
+                        # Si es imagen en Groq, cambiamos dinamicamente al modelo de vision de Groq
+                        modelo_usar = "llama-3.2-90b-vision-preview"
+                        archivo_subido.seek(0)
+                        base64_image = base64.b64encode(archivo_subido.getvalue()).decode('utf-8')
+                        mime_type = "image/jpeg" if nombre_archivo.endswith(('.jpg', '.jpeg')) else "image/png"
+                        
+                        mensajes_api[-1]["content"] = [
+                            {"type": "text", "text": prompt_final},
+                            {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{base64_image}"}}
+                        ]
                     else:
                         archivo_subido.seek(0)
                         texto_extraido = ""
@@ -433,20 +485,20 @@ if prompt:
                                 texto_extraido = "[Aviso: Falta libreria PyPDF2 en GitHub.]"
                         else:
                             texto_extraido = archivo_subido.read().decode('utf-8')
-                        mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto: {archivo_subido.name}]\n{texto_extraido[:15000]}"
-                
-                response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=mensajes_api)
+                        mensajes_api[-1]["content"] = f"{prompt_final}\n\n[Archivo adjunto: {archivo_subido.name}]\n{texto_extraido[:15000]}"
+                else:
+                    mensajes_api[-1]["content"] = prompt_final
+
+                response = client.chat.completions.create(model=modelo_usar, messages=mensajes_api)
                 respuesta_texto = response.choices[0].message.content
                 st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
 
             # --- LOGICA DE GEMINI (Vision e Imagenes) ---
             elif modelo_ia == "Neura Vision (Analisis de Imagenes)":
-                # Configurar el modelo de Gemini (usamos el actual recomendado por Google)
                 modelo_vision = genai.GenerativeModel('gemini-1.5-flash')
                 
-                # Construir historial para Gemini
                 historial_gemini = []
-                for m in st.session_state.chats[st.session_state.chat_actual][-10:-1]: # Todo menos el prompt actual
+                for m in st.session_state.chats[st.session_state.chat_actual][-10:-1]:
                     rol_gemini = "user" if m["rol"] == "user" else "model"
                     historial_gemini.append({"role": rol_gemini, "parts": [m["texto"]]})
                 
@@ -457,14 +509,14 @@ if prompt:
                     if nombre_archivo.endswith(('.png', '.jpg', '.jpeg')):
                         archivo_subido.seek(0)
                         img = Image.open(archivo_subido)
-                        instruccion_combinada = f"{instrucciones}\n\nEl usuario dice: {prompt}"
+                        instruccion_combinada = f"{instrucciones}\n\nEl usuario dice: {prompt_final}"
                         respuesta = modelo_vision.generate_content([instruccion_combinada, img])
                         respuesta_texto = respuesta.text
                     else:
-                        st.error("Aviso: Para leer documentos de texto o PDF, es mas eficiente usar el motor 'Neura (Rapido)'.")
+                        st.error("Aviso: Para leer documentos de texto o PDF, usa el motor 'Neura (Rapido)'.")
                         st.stop()
                 else:
-                    respuesta = chat_gemini.send_message(f"{instrucciones}\n\n{prompt}")
+                    respuesta = chat_gemini.send_message(f"{instrucciones}\n\n{prompt_final}")
                     respuesta_texto = respuesta.text
 
             # --- RENDERIZADO COMUN Y GUARDADO ---
