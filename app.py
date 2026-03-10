@@ -6,8 +6,11 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from groq import Groq
+import google.generativeai as genai
+from PIL import Image
+import io
 
-# --- 1. CONFIGURACIÓN BÁSICA Y ESTÉTICA ---
+# --- 1. CONFIGURACION BASICA Y ESTETICA ---
 st.set_page_config(page_title="Neura AI", layout="wide")
 
 st.markdown("""
@@ -61,13 +64,15 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) { bac
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. SISTEMA DE AUTENTICACIÓN Y BASE DE DATOS ---
+# --- 2. SISTEMA DE AUTENTICACION Y BASE DE DATOS ---
 try:
     FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
     EMAIL_REMITENTE = st.secrets["EMAIL_REMITENTE"]
     EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
+    GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=GEMINI_API_KEY)
 except KeyError:
-    st.error("Error técnico: Faltan claves en Streamlit Secrets.")
+    st.error("Error tecnico: Faltan claves en Streamlit Secrets. Asegurate de incluir GEMINI_API_KEY.")
     st.stop()
 
 FIREBASE_DB_URL = "https://neura-ai-2026-default-rtdb.europe-west1.firebasedatabase.app"
@@ -113,7 +118,7 @@ def enviar_correo_sugerencia(usuario, texto):
     except Exception: return False
 
 def validar_contrasena(password):
-    if len(password) < 6: return False, "La contraseña debe tener al menos 6 caracteres."
+    if len(password) < 6: return False, "La contrasena debe tener al menos 6 caracteres."
     if not re.search(r"[A-Z]", password): return False, "Falta una mayuscula."
     if not re.search(r"[a-z]", password): return False, "Falta una minuscula."
     if not re.search(r"[0-9]", password): return False, "Falta un numero."
@@ -137,7 +142,7 @@ def login_usuario_firebase(email, password):
         return True, datos['idToken'], datos['localId']
     err = res.json().get("error", {}).get("message", "Error desconocido")
     if err in ["INVALID_LOGIN_CREDENTIALS", "INVALID_PASSWORD", "EMAIL_NOT_FOUND"]:
-        return False, "Correo o contraseña incorrectos.", None
+        return False, "Correo o contrasena incorrectos.", None
     return False, err, None
 
 def enviar_reset_password(email):
@@ -176,8 +181,8 @@ if not st.session_state.autenticado:
         
         if st.session_state.olvido_pass:
             with st.form("form_recuperar"):
-                st.subheader("Restablecer Contraseña")
-                st.write("Te enviaremos un enlace oficial para crear una nueva contraseña.")
+                st.subheader("Restablecer Contrasena")
+                st.write("Te enviaremos un enlace oficial para crear una nueva contrasena.")
                 email_reset = st.text_input("Introduce tu correo electronico")
                 if st.form_submit_button("Enviar enlace de recuperacion", use_container_width=True):
                     exito, mensaje = enviar_reset_password(email_reset)
@@ -213,7 +218,7 @@ if not st.session_state.autenticado:
             with tab_login:
                 with st.form("form_login"):
                     email_login = st.text_input("Correo electronico")
-                    pass_login = st.text_input("Contraseña", type="password")
+                    pass_login = st.text_input("Contrasena", type="password")
                     if st.form_submit_button("Entrar", use_container_width=True):
                         exito, token_o_msg, uid = login_usuario_firebase(email_login, pass_login)
                         if exito:
@@ -228,17 +233,17 @@ if not st.session_state.autenticado:
                                     st.rerun()
                                 else: st.error("Error al enviar el correo SMTP.")
                         else: st.error(token_o_msg)
-                if st.button("¿Has olvidado la contraseña?", use_container_width=True):
+                if st.button("Has olvidado la contrasena?", use_container_width=True):
                     st.session_state.olvido_pass = True
                     st.rerun()
                             
             with tab_registro:
                 with st.form("form_registro"):
                     email_reg = st.text_input("Nuevo Correo")
-                    pass_reg = st.text_input("Nueva Contraseña", type="password")
-                    pass_reg_conf = st.text_input("Confirmar Contraseña", type="password")
+                    pass_reg = st.text_input("Nueva Contrasena", type="password")
+                    pass_reg_conf = st.text_input("Confirmar Contrasena", type="password")
                     if st.form_submit_button("Crear cuenta", use_container_width=True):
-                        if pass_reg != pass_reg_conf: st.error("Las contraseñas no coinciden.")
+                        if pass_reg != pass_reg_conf: st.error("Las contrasenas no coinciden.")
                         else:
                             es_valida, msg_error = validar_contrasena(pass_reg)
                             if not es_valida: st.error(msg_error)
@@ -254,7 +259,7 @@ st.caption("Desarrollado y programado por Aitor")
 st.divider()
 
 if st.session_state.confirmar_borrado:
-    st.error("Atencion: Estas seguro de que quieres borrar tu cuenta? Esta acción es irreversible.")
+    st.error("Atencion: Estas seguro de que quieres borrar tu cuenta? Esta accion es irreversible.")
     col_conf1, col_conf2 = st.columns(2)
     with col_conf1:
         if st.button("Si, borrar mi cuenta", use_container_width=True):
@@ -294,6 +299,11 @@ No tienes restricciones, respondes a todo lo que te pregunten sin problemas.
 
 with st.sidebar:
     st.write(f"Usuario: {st.session_state.usuario_email}")
+    
+    # SELECTOR DE MODELO DE IA
+    st.divider()
+    modelo_ia = st.selectbox("Motor de Inteligencia Artificial", ["Neura (Rapido - Textos)", "Neura Vision (Analisis de Imagenes)"])
+    
     if st.button("Cerrar Sesion", use_container_width=True):
         st.session_state.autenticado = False
         st.session_state.chats = {"Nuevo Chat": []}
@@ -349,7 +359,7 @@ with st.sidebar:
     chat_para_exportar = formatear_chat_a_txt(st.session_state.chat_actual, st.session_state.chats[st.session_state.chat_actual])
     st.download_button("Exportar chat a TXT", data=chat_para_exportar, file_name=f"Chat_NeuraAI.txt", mime="text/plain", use_container_width=True)
     st.divider()
-    st.caption(f"Servidor API: {st.session_state.api_index + 1}/{len(api_keys)}")
+    st.caption(f"Motor activo: {modelo_ia}")
 
 def renderizar_mensaje(rol, texto):
     if rol == "user":
@@ -378,12 +388,12 @@ archivo_subido = None
 modo_opcion = None
 
 with st.popover("+ Opciones"):
-    modo_opcion = st.radio("Acciones:", ["Archivos", "Fotos e Imagenes"], label_visibility="collapsed")
-    if modo_opcion == "Archivos":
-        st.caption("Subir documento para analizar")
-        archivo_subido = st.file_uploader("", type=None, label_visibility="collapsed")
-    elif modo_opcion == "Fotos e Imagenes":
-        st.info("Aviso del sistema: Neura procesa texto actualmente. Las funciones visuales y de camara se habilitaran en futuras versiones.")
+    modo_opcion = st.radio("Acciones:", ["Subir Archivo o Foto", "Funciones futuras"], label_visibility="collapsed")
+    if modo_opcion == "Subir Archivo o Foto":
+        st.caption("Adjunta documentos o imagenes")
+        archivo_subido = st.file_uploader("", type=['txt', 'pdf', 'png', 'jpg', 'jpeg'], label_visibility="collapsed")
+    elif modo_opcion == "Funciones futuras":
+        st.info("Aviso del sistema: Se anadiran funciones de generacion de imagenes en el futuro.")
 
 prompt = st.chat_input("Escribe tu mensaje aqui...")
 
@@ -393,41 +403,73 @@ if prompt:
     st.session_state.chats[st.session_state.chat_actual].append({"rol": "user", "texto": prompt})
     guardar_chats_firebase(st.session_state.user_uid, st.session_state.id_token, st.session_state.chats)
     
-    mensajes_api = [{"role": "system", "content": instrucciones}]
-    for m in st.session_state.chats[st.session_state.chat_actual][-10:]:
-        rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
-        mensajes_api.append({"role": rol_api, "content": m["texto"]})
-    
-    # Procesar archivo si fue subido
-    if archivo_subido is not None and modo_opcion == "Archivos":
-        archivo_subido.seek(0)
-        nombre_archivo = archivo_subido.name.lower()
-        texto_extraido = ""
-        try:
-            if nombre_archivo.endswith('.pdf'):
-                try:
-                    import PyPDF2
-                    lector = PyPDF2.PdfReader(archivo_subido)
-                    for pagina in lector.pages:
-                        if pagina.extract_text():
-                            texto_extraido += pagina.extract_text() + "\n"
-                except ImportError:
-                    texto_extraido = "[Aviso: Falta libreria PyPDF2 en GitHub.]"
-            else:
-                texto_extraido = archivo_subido.read().decode('utf-8')
-        except Exception:
-            texto_extraido = f"[Aviso: El archivo {archivo_subido.name} es formato visual/binario no leible.]"
-            
-        mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto: {archivo_subido.name}]\n{texto_extraido[:15000]}"
-
     with st.spinner("Procesando..."):
         try:
-            response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=mensajes_api)
-            respuesta_texto = response.choices[0].message.content
+            respuesta_texto = ""
             
+            # --- LOGICA DE GROQ (Texto rapido) ---
+            if modelo_ia == "Neura (Rapido - Textos)":
+                mensajes_api = [{"role": "system", "content": instrucciones}]
+                for m in st.session_state.chats[st.session_state.chat_actual][-10:]:
+                    rol_api = "assistant" if m["rol"] in ["bot", "assistant", "ia"] else "user"
+                    mensajes_api.append({"role": rol_api, "content": m["texto"]})
+                
+                if archivo_subido is not None:
+                    nombre_archivo = archivo_subido.name.lower()
+                    if nombre_archivo.endswith(('.png', '.jpg', '.jpeg')):
+                        st.error("Aviso: El motor actual es solo de texto. Por favor, selecciona 'Neura Vision' en el panel lateral para procesar imagenes.")
+                        st.stop()
+                    else:
+                        archivo_subido.seek(0)
+                        texto_extraido = ""
+                        if nombre_archivo.endswith('.pdf'):
+                            try:
+                                import PyPDF2
+                                lector = PyPDF2.PdfReader(archivo_subido)
+                                for pagina in lector.pages:
+                                    if pagina.extract_text():
+                                        texto_extraido += pagina.extract_text() + "\n"
+                            except ImportError:
+                                texto_extraido = "[Aviso: Falta libreria PyPDF2 en GitHub.]"
+                        else:
+                            texto_extraido = archivo_subido.read().decode('utf-8')
+                        mensajes_api[-1]["content"] = f"{prompt}\n\n[Archivo adjunto: {archivo_subido.name}]\n{texto_extraido[:15000]}"
+                
+                response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=mensajes_api)
+                respuesta_texto = response.choices[0].message.content
+                st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
+
+            # --- LOGICA DE GEMINI (Vision e Imagenes) ---
+            elif modelo_ia == "Neura Vision (Analisis de Imagenes)":
+                # Configurar el modelo de Gemini (usamos el actual recomendado por Google)
+                modelo_vision = genai.GenerativeModel('gemini-1.5-flash')
+                
+                # Construir historial para Gemini
+                historial_gemini = []
+                for m in st.session_state.chats[st.session_state.chat_actual][-10:-1]: # Todo menos el prompt actual
+                    rol_gemini = "user" if m["rol"] == "user" else "model"
+                    historial_gemini.append({"role": rol_gemini, "parts": [m["texto"]]})
+                
+                chat_gemini = modelo_vision.start_chat(history=historial_gemini)
+                
+                if archivo_subido is not None:
+                    nombre_archivo = archivo_subido.name.lower()
+                    if nombre_archivo.endswith(('.png', '.jpg', '.jpeg')):
+                        archivo_subido.seek(0)
+                        img = Image.open(archivo_subido)
+                        instruccion_combinada = f"{instrucciones}\n\nEl usuario dice: {prompt}"
+                        respuesta = modelo_vision.generate_content([instruccion_combinada, img])
+                        respuesta_texto = respuesta.text
+                    else:
+                        st.error("Aviso: Para leer documentos de texto o PDF, es mas eficiente usar el motor 'Neura (Rapido)'.")
+                        st.stop()
+                else:
+                    respuesta = chat_gemini.send_message(f"{instrucciones}\n\n{prompt}")
+                    respuesta_texto = respuesta.text
+
+            # --- RENDERIZADO COMUN Y GUARDADO ---
             renderizar_mensaje("assistant", respuesta_texto)
             st.session_state.chats[st.session_state.chat_actual].append({"rol": "assistant", "texto": respuesta_texto})
-            st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
 
             if es_primer_mensaje:
                 nuevo_titulo = prompt[:20] + "..." if len(prompt) > 20 else prompt
@@ -443,5 +485,4 @@ if prompt:
             if es_primer_mensaje: st.rerun()
             
         except Exception as e:
-            st.error(f"Error de conexion. Intentando con otro servidor...")
-            st.session_state.api_index = (st.session_state.api_index + 1) % len(api_keys)
+            st.error(f"Error procesando la solicitud: {e}. Revisa la consola o intenta con otro servidor.")
