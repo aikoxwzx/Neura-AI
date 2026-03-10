@@ -495,7 +495,7 @@ if prompt:
 
             # --- LOGICA DE GEMINI (Vision e Imagenes) ---
             elif modelo_ia == "Neura Vision (Analisis de Imagenes)":
-                modelo_vision = genai.GenerativeModel('gemini-1.5-flash')
+                modelo_vision = genai.GenerativeModel('gemini-2.5-flash')
                 
                 historial_gemini = []
                 for m in st.session_state.chats[st.session_state.chat_actual][-10:-1]:
